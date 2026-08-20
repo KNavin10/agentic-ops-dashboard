@@ -9,6 +9,9 @@ class QueryArgs(BaseModel):
 class BreachReasonArgs(BaseModel):
     ids: list[Annotated[int, Field(ge=1)]]
 
+class SearchPoliciesArgs(BaseModel):
+    question: str = Field(min_length=1)
+    k: int = Field(default=4, ge=1, le=8)
 # class QueryRecord(BaseModel):
 #     id: RecordId | None = None
 #     ids: list[RecordId] | None = Field(default=None, min_length=1, max_length=200)
