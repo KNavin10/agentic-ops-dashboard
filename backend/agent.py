@@ -1,13 +1,18 @@
 from tools import TOOL_REGISTRY
 from app import ask_model
-from approvals import ask_for_approval
+from approvals import ask_for_approval, build_approval_request
+from tool_schemas import SENSITIVE
 import json
 
 MAX_STEPS = 8
 TOKEN_BUDGET = 8000
 
 
-def run_agent(question: str) -> dict:
+def run_agent(
+    question: str,
+    approve_sensitive: bool = False,
+    model_fn=None,
+) -> dict:
     messages = [
         {"role": "user", "content": question}
     ]
@@ -16,7 +21,7 @@ def run_agent(question: str) -> dict:
     spent_tokens = 0
 
     for step in range(MAX_STEPS):
-        response = ask_model(messages)
+        response = ask_model(messages, model_fn=model_fn)
 
         spent_tokens += response["input_tokens"]
         spent_tokens += response["output_tokens"]
@@ -40,7 +45,11 @@ def run_agent(question: str) -> dict:
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
 
-            result = dispatch_tool(tool_name, arguments)
+            result = dispatch_tool(
+                tool_name,
+                arguments,
+                approve_sensitive=approve_sensitive,
+            )
 
             trace.append({
                 "step": step,
@@ -48,6 +57,9 @@ def run_agent(question: str) -> dict:
                 "args": arguments,
                 "result": result,
             })
+
+            if result.get("status") == "awaiting_approval":
+                return result
 
             messages.append({
                 "role": "assistant",
@@ -76,17 +88,21 @@ def run_agent(question: str) -> dict:
         "tokens": spent_tokens,
     }
 
-def dispatch_tool(tool_name: str, raw_arguments: dict) -> dict:
+def dispatch_tool(
+    tool_name: str,
+    raw_arguments: dict,
+    approve_sensitive: bool = False,
+) -> dict:
     if tool_name not in TOOL_REGISTRY:
         return {
             "error": "unknown_tool",
             "tool": tool_name,
         }
 
-    if not ask_for_approval(tool_name, raw_arguments):
+    if tool_name in SENSITIVE and not approve_sensitive:
         return {
-            "status": "cancelled",
-            "message": f"{tool_name} cancelled by user.",
+            "status": "awaiting_approval",
+            "approval": build_approval_request(tool_name, raw_arguments),
         }
 
     handler = TOOL_REGISTRY[tool_name]
@@ -96,6 +112,17 @@ def dispatch_tool(tool_name: str, raw_arguments: dict) -> dict:
 
 
 if __name__ == "__main__":
-    result = run_agent("What is the filing deadline for lunar entities?"
-    )
+    question = "What is the filing deadline for lunar entities?"
+    result = run_agent(question)
+
+    if result.get("status") == "awaiting_approval":
+        approval = result["approval"]
+        if ask_for_approval(approval["tool"], approval["arguments"]):
+            result = run_agent(question, approve_sensitive=True)
+        else:
+            result = {
+                "status": "cancelled",
+                "message": f'{approval["tool"]} cancelled by user.',
+            }
+
     print(result)

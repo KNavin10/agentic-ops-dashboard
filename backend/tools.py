@@ -9,6 +9,17 @@ import rag
 
 MAX_POLICY_DISTANCE = 1.0
 
+
+def get_output_directory() -> Path:
+    backend_directory = Path(__file__).resolve().parent
+    local_output = backend_directory / "output"
+    root_output = backend_directory.parent / "output"
+
+    if root_output.exists() and not local_output.exists():
+        return root_output
+
+    return local_output
+
 def query_submissions(raw: dict) -> dict:
     try:
         args = QueryArgs.model_validate(raw)
@@ -110,11 +121,7 @@ def export_report(raw: dict) -> dict:
             "message": "Export cancelled by user.",
         }
 
-    output_path = (
-        Path(__file__).resolve().parent
-        / "output"
-        / f"{args.region.lower()}_report.csv"
-    )
+    output_path = get_output_directory() / f"{args.region.lower()}_report.csv"
 
     output_path.parent.mkdir(exist_ok=True)
 

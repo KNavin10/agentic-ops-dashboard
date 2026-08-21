@@ -1,6 +1,6 @@
 # Agentic Regulatory Ops Dashboard
 
-This is a beginner-friendly backend slice of the **Agentic Regulatory Ops Dashboard** from the 14-day agentic AI study guide.
+This is the beginner-friendly Python backend for the **Agentic Regulatory Ops Dashboard** from the 14-day agentic AI study guide. The Angular frontend lives in the sibling `../frontend` folder.
 
 It demonstrates how an agent can use small, validated tools to work with regulatory submission data and policy documents. The current repository is a Python/SQLite learning project; it is not yet the full Angular + FastAPI dashboard described in the study guide.
 
@@ -63,17 +63,15 @@ The MCP server currently exposes only `query_submissions` and `search_policies`.
 - A small input guardrail blocks several obvious instruction-override phrases.
 - The MCP server reuses the same tool boundary instead of exposing raw SQL or shell access.
 
-This is an educational implementation. It does not yet provide authentication, authorization, a persistent audit log, a web API, a frontend, or a production-grade security review.
+This is an educational implementation and is not a production-grade security review.
 
 ## Setup
 
 From PowerShell:
 
 ```powershell
-cd D:\agentic-ops-dashboard
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+cd D:\agentic-ops-dashboard\backend
+..\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 Create a `.env` file. `app.py` currently uses Groq, so add the key it needs:
@@ -91,7 +89,7 @@ The existing `.env.example` contains older placeholder provider names; check the
 The repository currently contains a seeded `data/operations.db`. To recreate the deterministic database:
 
 ```powershell
-python .\seed_database.py
+..\.venv\Scripts\python.exe .\seed_database.py
 ```
 
 Warning: the seed script clears the existing `submissions` table before inserting 200 fake rows.
@@ -99,23 +97,46 @@ Warning: the seed script clears the existing `submissions` table before insertin
 For policy search, start Ollama and make the embedding model configured by `OLLAMA_EMBEDDING_MODEL` available. Then build the local ChromaDB collection:
 
 ```powershell
-python .\ingest_policies.py
+..\.venv\Scripts\python.exe .\ingest_policies.py
 ```
 
 The policy index is stored in `vectorstore/` and uses the `reg_policies` collection. Chunks preserve Markdown headings and store `source`, `chunk_id`, `section`, and an estimated token count.
 
 ## Run the learning examples
 
+Run the FastAPI backend for the Angular frontend:
+
+```powershell
+..\.venv\Scripts\python.exe -m uvicorn api:app --reload
+```
+
+The local development API expects `Authorization: Bearer local-dev-token`.
+
+For the Day 7 milestone, verify the normal `POST /api/ask` request first. The
+streaming milestone is separate: use `POST /api/ask/stream` from Angular with
+`fetch()` and a readable response stream. It returns one JSON object per line;
+do not use browser `EventSource`, because that performs a GET request.
+
+The stream events are:
+
+```json
+{"type":"text","text":"..."}
+{"type":"tool","tool":"query_submissions","row_count":10}
+{"type":"rows","rows":[]}
+{"type":"approval","tool":"export_report","arguments":{}}
+{"type":"done"}
+```
+
 Run the bounded agent example:
 
 ```powershell
-python .\agent.py
+..\.venv\Scripts\python.exe .\agent.py
 ```
 
 Run the input guardrail plus agent example:
 
 ```powershell
-python .\guardrails.py
+..\.venv\Scripts\python.exe .\guardrails.py
 ```
 
 Both examples call the Groq model, so `GROQ_API_KEY` must be set first.
@@ -123,7 +144,7 @@ Both examples call the Groq model, so `GROQ_API_KEY` must be set first.
 For a simple offline database-tool check:
 
 ```powershell
-python -c "from tools import query_submissions; print(query_submissions({'region': 'APAC', 'max_rows': 3}))"
+..\.venv\Scripts\python.exe -c "from tools import query_submissions; print(query_submissions({'region': 'APAC', 'max_rows': 3}))"
 ```
 
 ## Use the MCP server with Codex
@@ -131,14 +152,14 @@ python -c "from tools import query_submissions; print(query_submissions({'region
 The server uses local **stdio** transport. Register it once from the project directory:
 
 ```powershell
-codex mcp add reg-ops -- .venv\Scripts\python.exe .\mcp_server.py
+codex mcp add reg-ops -- ..\.venv\Scripts\python.exe .\mcp_server.py
 codex mcp list
 ```
 
 For a non-interactive Codex query, allow the exact tool and approve MCP tools automatically for that invocation:
 
 ```powershell
-codex exec --ephemeral -C "D:\agentic-ops-dashboard" `
+codex exec --ephemeral -C "D:\agentic-ops-dashboard\backend" `
   -c "mcp_servers.reg-ops.enabled_tools=['query_submissions']" `
   -c "mcp_servers.reg-ops.default_tools_approval_mode='approve'" `
   --sandbox read-only `
@@ -166,7 +187,7 @@ Live submission counts and statuses use SQLite tools, not RAG. This follows the 
 
 ## Project status against the study guide
 
-The study guide’s Project A target also includes Angular, FastAPI, tests, CI, authentication/authorization, persistent audit logging, deployment, and evaluation. Those pieces are **not present in this checkout yet**.
+The study guide’s Project A target also includes CI, persistent audit logging, deployment, and evaluation. Those pieces are future learning steps.
 
 The later guide topics—hybrid retrieval, LangGraph orchestration, observability and cost metrics, Docker/CI/CD, and the full security/demo review—are also future learning steps rather than implemented features here.
 

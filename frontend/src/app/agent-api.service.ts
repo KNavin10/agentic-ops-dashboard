@@ -1,0 +1,98 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface TraceStep {
+  step: number;
+  tool: string;
+  status: string;
+}
+
+export interface DataRow {
+  [key: string]: string | number | null;
+}
+
+export interface ApprovalRequest {
+  tool: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface AskResponse {
+  status: string;
+  answer?: string;
+  trace: TraceStep[];
+  rows: DataRow[];
+  approval?: ApprovalRequest | null;
+  tokens?: number;
+}
+
+export type StreamEvent =
+  | { type: 'text'; text: string }
+  | { type: 'tool'; tool: string; row_count: number }
+  | { type: 'rows'; rows: DataRow[] }
+  | { type: 'approval'; tool: string; arguments: Record<string, unknown> }
+  | { type: 'done' };
+
+@Injectable({ providedIn: 'root' })
+export class AgentApiService {
+  private readonly http = inject(HttpClient);
+  private readonly apiUrl = 'http://localhost:8000';
+
+  ask(question: string, approveSensitive = false): Observable<AskResponse> {
+    return this.http.post<AskResponse>(`${this.apiUrl}/api/ask`, {
+      question,
+      approve_sensitive: approveSensitive,
+    });
+  }
+
+  async askStream(
+    question: string,
+    approveSensitive: boolean,
+    onEvent: (event: StreamEvent) => void,
+  ): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/api/ask/stream`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('agent_api_token') || 'local-dev-token'}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question,
+        approve_sensitive: approveSensitive,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`The streaming request failed (${response.status}).`);
+    }
+
+    if (!response.body) {
+      throw new Error('The browser did not provide a readable response stream.');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.trim()) {
+          onEvent(JSON.parse(line) as StreamEvent);
+        }
+      }
+
+      if (done) {
+        break;
+      }
+    }
+
+    if (buffer.trim()) {
+      onEvent(JSON.parse(buffer) as StreamEvent);
+    }
+  }
+}

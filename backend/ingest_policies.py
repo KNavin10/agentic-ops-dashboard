@@ -5,6 +5,8 @@ import rag
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 POLICIES_PATH = PROJECT_ROOT / "policies"
+if not POLICIES_PATH.exists():
+    POLICIES_PATH = PROJECT_ROOT.parent / "policies"
 
 
 def read_policy_chunks() -> tuple[list[Path], list[dict]]:
@@ -12,7 +14,7 @@ def read_policy_chunks() -> tuple[list[Path], list[dict]]:
     chunks = []
 
     for document in documents:
-        source = document.relative_to(PROJECT_ROOT).as_posix()
+        source = document.relative_to(POLICIES_PATH.parent).as_posix()
         markdown = document.read_text(encoding="utf-8")
         chunks.extend(rag.chunk_markdown(markdown, source=source))
 

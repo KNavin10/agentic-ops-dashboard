@@ -1,5 +1,3 @@
-from agent import run_agent
-
 BLOCKED_PATTERNS = [
     "ignore previous instructions",
     "bypass approval",
@@ -17,11 +15,13 @@ def check_input(question: str) -> dict:
                 "reason": "possible instruction override",
             }
 
-    return run_agent(question)
-
+    return {
+        "allowed": True,
+    }
 
 
 if __name__ == "__main__":
-    result = check_input("Which APAC submissions were late, and what were their breach reasons?"
+    result = check_input(
+        "Which APAC submissions were late, and what were their breach reasons?"
     )
     print(result)
