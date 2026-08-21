@@ -1,8 +1,14 @@
 # Agentic Regulatory Ops Dashboard
 
-This is the beginner-friendly Python backend for the **Agentic Regulatory Ops Dashboard** from the 14-day agentic AI study guide. The Angular frontend lives in the sibling `../frontend` folder.
+[![CI](https://github.com/KNavin10/agentic-ops-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/KNavin10/agentic-ops-dashboard/actions/workflows/ci.yml)
 
-It demonstrates how an agent can use small, validated tools to work with regulatory submission data and policy documents. The current repository is a Python/SQLite learning project; it is not yet the full Angular + FastAPI dashboard described in the study guide.
+This beginner-friendly project is a working Angular + FastAPI dashboard for
+asking questions about fake regulatory submission data and local policy
+documents. It is based on the 14-day agentic AI study guide.
+
+The backend uses small validated tools, SQLite, Groq tool calling, and local
+Ollama/ChromaDB policy retrieval. The frontend displays the answer, returned
+rows, a simple chart, agent steps, and approval requests.
 
 ## What is implemented
 
@@ -10,71 +16,89 @@ It demonstrates how an agent can use small, validated tools to work with regulat
 | --- | --- |
 | Day 3: tool calling | Six function tools with JSON schemas, Pydantic argument models, SQLite queries, result shaping, and a tool registry. |
 | Day 4: agent loop | A bounded loop with `MAX_STEPS = 8`, a token budget, an in-memory trace, and a simple prompt-injection guardrail. |
-| Day 4: human approval | `export_report` and `email_summary` are treated as sensitive tools and require approval before writing local files. |
+| Day 4: human approval | `export_report` and `email_summary` are sensitive tools and require approval before writing local files. |
 | Day 5: RAG | Markdown policy chunking, Ollama embeddings, persistent ChromaDB storage, source/chunk metadata, a distance cutoff, and `INSUFFICIENT_DATA`. |
-| Day 6: MCP | A local stdio MCP server exposing `query_submissions` and `search_policies`. |
+| Day 6: MCP | A local stdio MCP server exposing the read-only `query_submissions` and `search_policies` tools. |
+| Day 7: dashboard | Angular 22 frontend, FastAPI endpoints, bearer-token authentication, normal and NDJSON request paths, approval UI, trace display, and a returned-rows chart. |
+| CI | GitHub Actions runs Ruff, Pytest, and the Angular production build. |
 
-The data is deliberately fake and deterministic. `seed_database.py` creates 200 submission rows across APAC, EMEA, and AMER.
+The data is deliberately fake and deterministic. `backend/seed_database.py`
+creates 200 submission rows across APAC, EMEA, and AMER.
 
 ## Architecture
 
 ```text
-User question
-    -> guardrails.py
-    -> agent.py
-    -> Groq model with tool schemas
-    -> validated tool in tools.py
-       -> SQLite database for live submission data
-       -> ChromaDB + Ollama for policy retrieval
-    -> tool result returned to the model
-    -> answer plus in-memory trace
+Browser
+  -> Angular 22 question screen
+  -> AgentApiService
+     -> POST /api/ask or POST /api/ask/stream
+        -> FastAPI authentication (Bearer token)
+        -> service.py
+           -> input guardrail
+           -> agent.py bounded model/tool loop
+              -> Groq model with tool schemas
+              -> tools.py registry
+                 -> SQLite submission data
+                 -> ChromaDB + Ollama policy retrieval
+        -> sanitized response: answer, rows, chart data, trace, approval
+  -> Angular answer, chart, steps, and approval dialog
 ```
 
-The MCP path reuses the same tool functions:
+The MCP path reuses the read-only tool functions directly:
 
 ```text
 Codex / another MCP client
-    -> mcp_server.py over local stdio
-    -> tools.py
-    -> SQLite or policy RAG
+  -> mcp_server.py over local stdio
+  -> query_submissions or search_policies
+  -> SQLite or policy RAG
 ```
 
 ## Tools
 
-The model-facing registry in `tool_schemas.py` contains:
+The model-facing registry in `backend/tool_schemas.py` contains:
 
-- `query_submissions(region, max_rows)` — read submission rows with an APAC/EMEA/AMER whitelist and a maximum of 200 rows.
-- `get_breach_reasons(ids)` — read breach details for one or more submission IDs.
-- `aggregate_by_month(region)` — return monthly submission and lateness aggregates.
-- `export_report(region)` — write a local CSV file after approval.
-- `email_summary(recipient, subject, body)` — write a local JSON outbox file after approval; it does not send email.
-- `search_policies(question, k)` — retrieve policy passages with source and chunk IDs.
+- `query_submissions(region, max_rows)` - read submission rows for APAC, EMEA,
+  or AMER, with a maximum of 200 rows.
+- `get_breach_reasons(ids)` - read breach details for one or more submission IDs.
+- `aggregate_by_month(region)` - return monthly submission and lateness
+  aggregates.
+- `export_report(region)` - write a local CSV file after approval.
+- `email_summary(recipient, subject, body)` - write a local JSON outbox file
+  after approval; it does not send email.
+- `search_policies(question, k)` - retrieve policy passages with source and
+  chunk IDs.
 
-The MCP server currently exposes only `query_submissions` and `search_policies`.
+The MCP server exposes only `query_submissions` and `search_policies`.
 
 ## Safety boundaries demonstrated
 
-- Region values are validated with Pydantic literals.
+- Region values and tool arguments are validated with Pydantic.
 - Query row counts are capped at 200.
 - SQL uses parameters instead of model-generated SQL.
-- Submission results return only `id`, `region`, `days_late`, and `status`.
-- Export and email actions are separated from read-only tools and require approval.
+- Submission results return only safe display fields.
+- Export and email actions are separated from read-only tools and require
+  approval.
 - The agent stops after eight steps or when its token budget is exceeded.
 - A small input guardrail blocks several obvious instruction-override phrases.
-- The MCP server reuses the same tool boundary instead of exposing raw SQL or shell access.
+- The MCP server does not expose raw SQL, shell access, arbitrary files, or
+  write tools.
 
-This is an educational implementation and is not a production-grade security review.
+This is an educational implementation, not a production-grade security
+review.
 
 ## Setup
 
-From PowerShell:
+Use Python 3.12 and Node.js 22. From PowerShell at the repository root:
 
 ```powershell
-cd D:\agentic-ops-dashboard\backend
-..\.venv\Scripts\python.exe -m pip install -r requirements.txt
+cd D:\agentic-ops-dashboard
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
+cd .\frontend
+npm ci
 ```
 
-Create a `.env` file. `app.py` currently uses Groq, so add the key it needs:
+Create `backend/.env` with the provider settings used by the application:
 
 ```env
 GROQ_API_KEY=your_groq_key
@@ -82,81 +106,144 @@ OLLAMA_HOST=http://127.0.0.1:11434
 OLLAMA_EMBEDDING_MODEL=qwen3-embedding
 ```
 
-The existing `.env.example` contains older placeholder provider names; check the code when adding environment variables.
+The Groq key is used for the agent model. Ollama and the configured embedding
+model are needed for policy retrieval.
 
 ## Prepare the local data
 
-The repository currently contains a seeded `data/operations.db`. To recreate the deterministic database:
+From `D:\agentic-ops-dashboard\backend`, recreate the deterministic database:
 
 ```powershell
 ..\.venv\Scripts\python.exe .\seed_database.py
 ```
 
-Warning: the seed script clears the existing `submissions` table before inserting 200 fake rows.
+The seed script clears the existing `submissions` table before inserting 200
+fake rows.
 
-For policy search, start Ollama and make the embedding model configured by `OLLAMA_EMBEDDING_MODEL` available. Then build the local ChromaDB collection:
+Start Ollama and make `OLLAMA_EMBEDDING_MODEL` available, then build the local
+ChromaDB collection:
 
 ```powershell
 ..\.venv\Scripts\python.exe .\ingest_policies.py
 ```
 
-The policy index is stored in `vectorstore/` and uses the `reg_policies` collection. Chunks preserve Markdown headings and store `source`, `chunk_id`, `section`, and an estimated token count.
+The policy index is stored in `backend/vectorstore/` and uses the
+`reg_policies` collection. Chunks preserve Markdown headings and store
+`source`, `chunk_id`, `section`, and an estimated token count.
 
-## Run the learning examples
+## Start the application
 
-Run the FastAPI backend for the Angular frontend:
+Start the FastAPI backend in one PowerShell window:
 
 ```powershell
-..\.venv\Scripts\python.exe -m uvicorn api:app --reload
+cd D:\agentic-ops-dashboard\backend
+..\.venv\Scripts\python.exe -m uvicorn api:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The local development API expects `Authorization: Bearer local-dev-token`.
+Start the Angular frontend in a second PowerShell window:
 
-For the Day 7 milestone, verify the normal `POST /api/ask` request first. The
-streaming milestone is separate: use `POST /api/ask/stream` from Angular with
-`fetch()` and a readable response stream. It returns one JSON object per line;
-do not use browser `EventSource`, because that performs a GET request.
+```powershell
+cd D:\agentic-ops-dashboard\frontend
+npm start
+```
 
-The stream events are:
+Open <http://localhost:4200/>. The frontend calls FastAPI at
+`http://localhost:8000`, and FastAPI allows the local Angular origins on port
+4200.
+
+## Authentication example
+
+This learning app uses the fixed local development token
+`local-dev-token`. The Angular interceptor adds it automatically. To call the
+normal API directly from PowerShell:
+
+```powershell
+$headers = @{ Authorization = 'Bearer local-dev-token' }
+$body = @{ question = 'Show three late APAC submissions.'; approve_sensitive = $false } | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/ask `
+  -Headers $headers `
+  -ContentType 'application/json' `
+  -Body $body
+```
+
+Requests without this header receive HTTP 401. This token is for local
+learning only; it is not real user authentication.
+
+## Approval behavior
+
+Read-only tools run normally. `export_report` and `email_summary` pause with
+`status: "awaiting_approval"` and return the tool name and arguments in the
+`approval` field before writing anything.
+
+In the Angular UI:
+
+1. The approval dialog shows the requested tool and arguments.
+2. Decline clears the request and sends no write request.
+3. Approve and resubmit sends the question again with
+   `approve_sensitive: true`.
+
+An approved export writes a CSV under `output/`. An approved email summary
+writes `backend/outbox/email_summary.json`; no email is sent. When running
+`backend/agent.py` directly, approval is requested in the terminal with a
+`yes` or `no` answer.
+
+## Trace and streaming behavior
+
+The internal agent trace records each tool step, including its arguments and
+result, in memory. Before the result is returned by FastAPI, `service.py`
+sanitizes the trace to only `step`, `tool`, and `status`. The Angular UI shows
+these safe summaries and separately displays returned rows and chart data.
+
+`POST /api/ask/stream` returns newline-delimited JSON (NDJSON) events such as:
 
 ```json
-{"type":"text","text":"..."}
-{"type":"tool","tool":"query_submissions","row_count":10}
+{"type":"tool","tool":"query_submissions","row_count":3}
 {"type":"rows","rows":[]}
+{"type":"text","text":"..."}
 {"type":"approval","tool":"export_report","arguments":{}}
 {"type":"done"}
 ```
 
-Run the bounded agent example:
+Angular uses `fetch()` and a readable response stream for this endpoint. Do not
+use browser `EventSource`, because it sends a GET request. The current backend
+computes the complete answer first and then emits the NDJSON events; it is a
+simple streaming-shaped response, not live provider token streaming.
+
+## Tests and CI
+
+Run the backend checks locally:
 
 ```powershell
-..\.venv\Scripts\python.exe .\agent.py
+cd D:\agentic-ops-dashboard\backend
+..\.venv\Scripts\python.exe -m ruff check .
+..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Run the input guardrail plus agent example:
+Run the Angular production build:
 
 ```powershell
-..\.venv\Scripts\python.exe .\guardrails.py
+cd D:\agentic-ops-dashboard\frontend
+npm run build
 ```
 
-Both examples call the Groq model, so `GROQ_API_KEY` must be set first.
-
-For a simple offline database-tool check:
-
-```powershell
-..\.venv\Scripts\python.exe -c "from tools import query_submissions; print(query_submissions({'region': 'APAC', 'max_rows': 3}))"
-```
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same
+backend Ruff and Pytest commands, then runs `npm ci` and `npm run build` for
+the frontend on every push and pull request.
 
 ## Use the MCP server with Codex
 
-The server uses local **stdio** transport. Register it once from the project directory:
+The server uses local **stdio** transport. From the backend directory:
 
 ```powershell
 codex mcp add reg-ops -- ..\.venv\Scripts\python.exe .\mcp_server.py
 codex mcp list
 ```
 
-For a non-interactive Codex query, allow the exact tool and approve MCP tools automatically for that invocation:
+For a non-interactive Codex query, allow the exact tool and approve MCP tools
+automatically for that invocation:
 
 ```powershell
 codex exec --ephemeral -C "D:\agentic-ops-dashboard\backend" `
@@ -166,51 +253,68 @@ codex exec --ephemeral -C "D:\agentic-ops-dashboard\backend" `
   "Using reg-ops, call query_submissions once with region APAC and max_rows 3. Report only the returned IDs and statuses."
 ```
 
-The `default_tools_approval_mode` override is needed with the current Codex CLI non-interactive MCP approval behavior. The MCP server itself can also be used by other compatible local clients.
+The MCP server itself exposes only read-only tools and can also be used by
+other compatible local clients.
 
 ## RAG behavior
 
-`rag.py` implements this small pipeline:
+`backend/rag.py` implements this pipeline:
 
 ```text
 Markdown policy
-    -> heading/paragraph chunks
-    -> Ollama embedding
-    -> persistent ChromaDB collection
-    -> nearest-neighbor retrieval
-    -> source and chunk ID returned to the caller
+  -> heading/paragraph chunks
+  -> Ollama embedding
+  -> persistent ChromaDB collection
+  -> nearest-neighbor retrieval
+  -> source and chunk ID returned to the caller
 ```
 
-Policy results are filtered using `MAX_POLICY_DISTANCE = 1.0`. When no result passes the cutoff, `search_policies` returns `INSUFFICIENT_DATA` instead of inventing a policy answer.
+Policy results use `MAX_POLICY_DISTANCE = 1.0`. When no result passes the
+cutoff, `search_policies` returns `INSUFFICIENT_DATA` instead of inventing a
+policy answer. Live submission counts and statuses use SQLite tools, not RAG.
 
-Live submission counts and statuses use SQLite tools, not RAG. This follows the study guide’s distinction: retrieve documents for policy claims and query a live tool for current records.
+## Project status
 
-## Project status against the study guide
-
-The study guide’s Project A target also includes CI, persistent audit logging, deployment, and evaluation. Those pieces are future learning steps.
-
-The later guide topics—hybrid retrieval, LangGraph orchestration, observability and cost metrics, Docker/CI/CD, and the full security/demo review—are also future learning steps rather than implemented features here.
+The Angular + FastAPI dashboard milestone is implemented, along with local
+MCP, RAG, approval, trace, tests, and CI examples. Later study-guide topics
+such as hybrid retrieval, LangGraph orchestration, durable audit logging,
+deployment, cost metrics, and a full production security review remain future
+learning steps.
 
 ## Important files
 
 | File | Purpose |
 | --- | --- |
-| `agent.py` | Bounded model–tool–model loop and in-memory trace. |
-| `app.py` | Groq client configuration and model call. |
-| `guardrails.py` | Simple input guardrail before the agent loop. |
-| `tools.py` | Tool implementations and registry. |
-| `tool_schemas.py` | Model-facing tool descriptions and sensitive-tool list. |
-| `models.py` | Pydantic argument contracts. |
-| `db.py` | SQLite access helpers. |
-| `seed_database.py` / `schema.sql` | Deterministic database setup. |
-| `rag.py` / `ingest_policies.py` | Policy chunking, embedding, indexing, and retrieval. |
-| `mcp_server.py` | Local stdio MCP server. |
-| `policies/sla_policy.md` | Local policy source document. |
+| `backend/api.py` | FastAPI app, authentication dependency, normal and streaming endpoints. |
+| `backend/agent.py` | Bounded model-tool-model loop and internal trace. |
+| `backend/app.py` | Groq client configuration and model call. |
+| `backend/service.py` | Guardrail entry point, response shaping, row/chart extraction, and trace sanitization. |
+| `backend/tools.py` | Tool implementations and registry. |
+| `backend/tool_schemas.py` | Model-facing tool descriptions and sensitive-tool list. |
+| `backend/models.py` | Pydantic request and tool argument contracts. |
+| `backend/db.py` | SQLite access helpers. |
+| `backend/rag.py` / `backend/ingest_policies.py` | Policy chunking, embedding, indexing, and retrieval. |
+| `backend/mcp_server.py` | Local stdio MCP server. |
+| `frontend/src/app/agent-api.service.ts` | Angular API and NDJSON stream client. |
+| `frontend/src/app/ask/` | Question screen, results, chart, trace, and approval dialog. |
+| `.github/workflows/ci.yml` | Backend checks and Angular build. |
 
 ## Current limitations
 
-- There is no automated test suite in the repository yet.
-- The agent trace is kept in memory and is not a durable audit record.
-- The input guardrail is intentionally small and is not a complete prompt-injection defence.
-- The MCP server is configured for local stdio use; there is no remote HTTP authentication layer.
-- The Groq model call and Ollama embedding call require external/local providers at runtime.
+- Authentication is a fixed local bearer token, with no real users, sessions,
+  roles, or production identity provider.
+- The agent trace is kept in memory. It is sanitized for the API response but
+  is not a durable audit record.
+- The input guardrail is intentionally small and is not a complete
+  prompt-injection defence.
+- The streaming endpoint emits events after the full agent call completes; it
+  does not yet stream provider tokens or support cancellation.
+- Approving a request resubmits the question with a simple boolean flag; there
+  is no durable, request-bound approval record.
+- Groq and Ollama are required at runtime for the full agent and policy-search
+  paths. There is no offline model fallback.
+- Submission data, exports, and the email outbox are local files/SQLite data;
+  the email tool does not send email.
+- CI runs the Angular production build but does not run Angular unit tests.
+- The app is configured for local development only: fixed localhost API/CORS
+  settings, no deployment configuration, and no production security review.
