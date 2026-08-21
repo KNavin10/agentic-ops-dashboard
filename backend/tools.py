@@ -1,18 +1,31 @@
-from models import QueryArgs, BreachReasonArgs, SearchPoliciesArgs
-from db import db
-from pathlib import Path
 import csv
 import json
-from approvals import ask_for_approval
-import rag
+from pathlib import Path
 
+from pydantic import ValidationError
+
+import rag
+from approvals import ask_for_approval
+from db import db
+from models import BreachReasonArgs, QueryArgs, SearchPoliciesArgs
 
 MAX_POLICY_DISTANCE = 1.0
+
+
+def get_output_directory() -> Path:
+    backend_directory = Path(__file__).resolve().parent
+    local_output = backend_directory / "output"
+    root_output = backend_directory.parent / "output"
+
+    if root_output.exists() and not local_output.exists():
+        return root_output
+
+    return local_output
 
 def query_submissions(raw: dict) -> dict:
     try:
         args = QueryArgs.model_validate(raw)
-    except Exception:
+    except ValidationError:
         return {
             "error": "Invalid arguments",
             "allowed_regions": ["APAC", "EMEA", "AMER"],
@@ -39,7 +52,7 @@ def query_submissions(raw: dict) -> dict:
 def get_breach_reasons(raw: dict) -> dict:
     try:
         args = BreachReasonArgs.model_validate(raw)
-    except Exception:
+    except ValidationError:
         return {
             "error": "Invalid arguments",
             "id": "provide an id"
@@ -67,7 +80,7 @@ def get_breach_reasons(raw: dict) -> dict:
 def aggregate_by_month(raw: dict) -> dict:
     try:
         args = QueryArgs.model_validate(raw)
-    except Exception:
+    except ValidationError:
        return {
             "error": "Invalid arguments",
             "allowed_regions": ["APAC", "EMEA", "AMER"],
@@ -87,7 +100,7 @@ def aggregate_by_month(raw: dict) -> dict:
 def export_report(raw: dict) -> dict:
     try:
         args = QueryArgs.model_validate(raw)
-    except Exception:
+    except ValidationError:
         return {
             "error": "Invalid arguments",
             "allowed_regions": ["APAC", "EMEA", "AMER"],
@@ -110,11 +123,7 @@ def export_report(raw: dict) -> dict:
             "message": "Export cancelled by user.",
         }
 
-    output_path = (
-        Path(__file__).resolve().parent
-        / "output"
-        / f"{args.region.lower()}_report.csv"
-    )
+    output_path = get_output_directory() / f"{args.region.lower()}_report.csv"
 
     output_path.parent.mkdir(exist_ok=True)
 
@@ -177,7 +186,7 @@ def email_summary(raw: dict) -> dict:
 def search_policies(raw: dict) -> dict:
     try:
         args = SearchPoliciesArgs.model_validate(raw)
-    except Exception:
+    except ValidationError:
         return {
             "error": "Invalid arguments",
             "question": "Question is required",

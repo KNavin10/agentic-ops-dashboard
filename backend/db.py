@@ -1,6 +1,5 @@
-from pathlib import Path
 import sqlite3
-
+from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent / "data" / "operations.db"
 
@@ -35,7 +34,6 @@ class Database:
             connection.set_trace_callback(
                 lambda statement: print(f"[DB] executed: {statement}")
             )
-            #
             query = f"""
                 SELECT *
                 FROM submissions

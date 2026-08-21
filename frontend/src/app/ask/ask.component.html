@@ -1,0 +1,91 @@
+<main class="dashboard-shell">
+  <header class="page-header">
+    <p class="eyebrow">REGULATORY OPERATIONS</p>
+    <h1>Ask the operations agent</h1>
+    <p class="subtitle">Questions go through the FastAPI agent boundary.</p>
+  </header>
+
+  <section class="question-card" aria-labelledby="question-title">
+    <h2 id="question-title">Question</h2>
+    <form (ngSubmit)="submit()">
+      <label for="question">What would you like to know?</label>
+      <textarea
+        id="question"
+        name="question"
+        [(ngModel)]="question"
+        rows="3"
+        placeholder="For example: Show APAC submissions that are late."
+      ></textarea>
+      <button class="primary-button" type="submit" [disabled]="loading">
+        {{ loading ? 'Working...' : 'Ask normally' }}
+      </button>
+      <button class="secondary-button" type="button" (click)="submitStream()" [disabled]="loading">
+        Ask with streaming
+      </button>
+    </form>
+  </section>
+
+  <p class="status-message" [class.error-message]="errorMessage" role="status">
+    {{ errorMessage || statusMessage }}
+  </p>
+
+  <section class="results-grid">
+    <article class="panel answer-panel">
+      <div class="panel-heading">
+        <h2>Written answer</h2>
+        <span class="status-pill">{{ statusMessage }}</span>
+      </div>
+      <p class="answer" [class.muted]="!answer">
+        {{ answer || 'The written answer will appear here.' }}
+      </p>
+    </article>
+
+    <article class="panel steps-panel">
+      <div class="panel-heading">
+        <h2>Agent steps</h2>
+        <span>{{ trace.length }} steps</span>
+      </div>
+      <ol *ngIf="trace.length; else noSteps">
+        <li *ngFor="let item of trace">
+          <span class="step-number">{{ item.step + 1 }}</span>
+          <span>{{ item.tool }}</span>
+          <span class="step-status">{{ item.status }}</span>
+        </li>
+      </ol>
+      <ng-template #noSteps>
+        <p class="muted">No agent steps yet.</p>
+      </ng-template>
+    </article>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="panel-heading">
+      <h2>Rows chart</h2>
+      <span>{{ rows.length }} rows</span>
+    </div>
+    <div #chartContainer class="chart-area" aria-label="Returned rows chart"></div>
+    <p *ngIf="!rows.length" class="muted">A chart appears when the agent returns rows.</p>
+  </section>
+
+  <div *ngIf="approval" class="dialog-backdrop" role="presentation">
+    <section
+      class="approval-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="approval-title"
+    >
+      <p class="eyebrow">ACTION PAUSED</p>
+      <h2 id="approval-title">Approval required</h2>
+      <p>The agent wants to run <strong>{{ approval.tool }}</strong>.</p>
+      <pre>{{ approval.arguments | json }}</pre>
+      <div class="dialog-actions">
+        <button class="secondary-button" type="button" (click)="declineApproval()">
+          Decline
+        </button>
+        <button class="primary-button" type="button" (click)="approveRequest()">
+          Approve and resubmit
+        </button>
+      </div>
+    </section>
+  </div>
+</main>

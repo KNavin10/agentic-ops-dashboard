@@ -3,6 +3,13 @@ import json
 from tool_schemas import SENSITIVE
 
 
+def build_approval_request(tool_name: str, arguments: dict) -> dict:
+    return {
+        "tool": tool_name,
+        "arguments": dict(arguments),
+    }
+
+
 def ask_for_approval(tool_name: str, arguments: dict) -> bool:
     if tool_name not in SENSITIVE:
         return True

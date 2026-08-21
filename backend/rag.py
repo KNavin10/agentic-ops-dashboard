@@ -1,15 +1,19 @@
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 import chromadb
 import ollama
 from dotenv import load_dotenv
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+POLICIES_PATH = PROJECT_ROOT / "policies"
+if not POLICIES_PATH.exists():
+    POLICIES_PATH = PROJECT_ROOT.parent / "policies"
 
-POLICY_PATH = Path(__file__).resolve().parent / "policies" / "sla_policy.md"
+POLICY_PATH = POLICIES_PATH / "sla_policy.md"
 SOURCE = "policies/sla_policy.md"
-VECTORSTORE_PATH = Path(__file__).resolve().parent / "vectorstore"
+VECTORSTORE_PATH = PROJECT_ROOT / "vectorstore"
 COLLECTION_NAME = "reg_policies"
 TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 

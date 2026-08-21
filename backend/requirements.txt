@@ -4,3 +4,8 @@ python-dotenv
 chromadb
 ollama
 mcp[cli]<2.0
+fastapi
+uvicorn
+pytest
+httpx
+ruff

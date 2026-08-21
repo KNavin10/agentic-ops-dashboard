@@ -1,10 +1,24 @@
 import os
-from groq import Groq
+
 from dotenv import load_dotenv
+from groq import Groq
+
 from tool_schemas import TOOLS
 
-
 load_dotenv()
+
+_client = None
+
+
+def _get_client():
+    global _client
+
+    if _client is None:
+        _client = Groq(api_key=os.environ["GROQ_API_KEY"])
+
+    return _client
+
+
 SYSTEM = {
     "role": "system",
     "content": """You are a regulatory operations assistant.
@@ -17,9 +31,13 @@ SYSTEM = {
                 Do not invent a policy answer from general model knowledge.""",
 }
 
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
-def ask_model(messages: list[dict]) -> dict:
-    response = client.chat.completions.create(
+
+def ask_model(messages: list[dict], client=None, model_fn=None) -> dict:
+    if model_fn is None:
+        active_client = client if client is not None else _get_client()
+        model_fn = active_client.chat.completions.create
+
+    response = model_fn(
         model="openai/gpt-oss-120b",
         max_tokens=500,
         temperature=0,
