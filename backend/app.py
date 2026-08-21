@@ -1,8 +1,9 @@
 import os
-from groq import Groq
-from dotenv import load_dotenv
-from tool_schemas import TOOLS
 
+from dotenv import load_dotenv
+from groq import Groq
+
+from tool_schemas import TOOLS
 
 load_dotenv()
 

@@ -1,8 +1,9 @@
-from tools import TOOL_REGISTRY
+import json
+
 from app import ask_model
 from approvals import ask_for_approval, build_approval_request
 from tool_schemas import SENSITIVE
-import json
+from tools import TOOL_REGISTRY
 
 MAX_STEPS = 8
 TOKEN_BUDGET = 8000

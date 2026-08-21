@@ -7,7 +7,6 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
 DATABASE_PATH = ROOT / "data" / "operations.db"
 SCHEMA_PATH = ROOT / "schema.sql"

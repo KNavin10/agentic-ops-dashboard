@@ -1,11 +1,10 @@
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 import chromadb
 import ollama
 from dotenv import load_dotenv
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 POLICIES_PATH = PROJECT_ROOT / "policies"

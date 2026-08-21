@@ -2,7 +2,6 @@ from pathlib import Path
 
 import rag
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent
 POLICIES_PATH = PROJECT_ROOT / "policies"
 if not POLICIES_PATH.exists():

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-
 LOCAL_DEV_TOKEN = "local-dev-token"
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -15,7 +14,7 @@ class LocalUser:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> LocalUser:
     if credentials is None or credentials.credentials != LOCAL_DEV_TOKEN:
         raise HTTPException(

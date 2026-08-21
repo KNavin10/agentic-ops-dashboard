@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 import tools
 
 mcp = FastMCP("reg-ops")
