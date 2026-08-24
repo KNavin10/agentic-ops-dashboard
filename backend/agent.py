@@ -13,6 +13,7 @@ def run_agent(
     question: str,
     approve_sensitive: bool = False,
     model_fn=None,
+    dispatch_fn=None,
 ) -> dict:
     messages = [
         {"role": "user", "content": question}
@@ -20,6 +21,7 @@ def run_agent(
 
     trace = []
     spent_tokens = 0
+    active_dispatch = dispatch_fn or dispatch_tool
 
     for step in range(MAX_STEPS):
         response = ask_model(messages, model_fn=model_fn)
@@ -46,7 +48,7 @@ def run_agent(
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
 
-            result = dispatch_tool(
+            result = active_dispatch(
                 tool_name,
                 arguments,
                 approve_sensitive=approve_sensitive,

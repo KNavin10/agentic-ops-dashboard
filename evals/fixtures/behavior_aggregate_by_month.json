@@ -1,0 +1,17 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "aggregate_by_month",
+          "arguments": {
+            "region": "APAC"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Here is the APAC monthly trend."
+    }
+  ]
+}

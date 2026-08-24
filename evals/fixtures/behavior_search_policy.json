@@ -1,0 +1,29 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "search_policies",
+          "arguments": {
+            "question": "What is the filing deadline for submissions?"
+          }
+        }
+      ]
+    },
+    {
+      "text": "The filing deadline is 7 business days."
+    }
+  ],
+  "tool_results": {
+    "search_policies": {
+      "status": "ok",
+      "matches": [
+        {
+          "text": "For APAC entities, the filing deadline is extended to 7 business days.",
+          "source": "policies/sla_policy.md",
+          "chunk_id": "policies/sla_policy.md:chunk-0001"
+        }
+      ]
+    }
+  }
+}
