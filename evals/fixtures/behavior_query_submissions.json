@@ -1,0 +1,18 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "query_submissions",
+          "arguments": {
+            "region": "APAC",
+            "max_rows": 200
+          }
+        }
+      ]
+    },
+    {
+      "text": "There are 63 APAC submissions."
+    }
+  ]
+}

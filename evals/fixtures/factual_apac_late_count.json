@@ -1,0 +1,18 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "query_submissions",
+          "arguments": {
+            "region": "APAC",
+            "max_rows": 200
+          }
+        }
+      ]
+    },
+    {
+      "text": "45 APAC submissions were late."
+    }
+  ]
+}

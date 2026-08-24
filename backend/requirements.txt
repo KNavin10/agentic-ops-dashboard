@@ -9,3 +9,4 @@ uvicorn
 pytest
 httpx
 ruff
+PyYAML>=6.0
