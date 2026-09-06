@@ -24,6 +24,19 @@ export interface AskResponse {
   rows: DataRow[];
   approval?: ApprovalRequest | null;
   tokens?: number;
+  request_id?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  cost_usd?: number;
+  latency_ms?: number;
+  cached?: boolean;
+}
+
+export interface AgentMetrics {
+  runs_today: number;
+  success_rate: number;
+  average_steps: number;
+  spend_today_usd: number;
 }
 
 export type StreamEvent =
@@ -31,7 +44,7 @@ export type StreamEvent =
   | { type: 'tool'; tool: string; row_count: number }
   | { type: 'rows'; rows: DataRow[] }
   | { type: 'approval'; tool: string; arguments: Record<string, unknown> }
-  | { type: 'done' };
+  | { type: 'done'; request_id?: string };
 
 @Injectable({ providedIn: 'root' })
 export class AgentApiService {
@@ -43,6 +56,10 @@ export class AgentApiService {
       question,
       approve_sensitive: approveSensitive,
     });
+  }
+
+  getMetrics(): Observable<AgentMetrics> {
+    return this.http.get<AgentMetrics>(`${this.apiUrl}/metrics`);
   }
 
   async askStream(

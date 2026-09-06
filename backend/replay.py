@@ -87,16 +87,29 @@ def run_offline_replay(
     """Run a fixture with real local tools and no external retrieval."""
     from agent import run_agent
 
-    return run_agent(
+    # Offline evaluation evidence is deliberately kept separate from the
+    # public trace, which must never expose arguments or tool results.
+    evaluation_trace = []
+
+    def dispatch_with_evidence(tool_name, raw_arguments, approve_sensitive=False):
+        result = offline_dispatch_tool(
+            fixture,
+            tool_name,
+            raw_arguments,
+            approve_sensitive=approve_sensitive,
+        )
+        evaluation_trace.append({
+            "tool": tool_name,
+            "args": deepcopy(raw_arguments),
+            "result": deepcopy(result),
+        })
+        return result
+
+    result = run_agent(
         question,
         approve_sensitive=approve_sensitive,
         model_fn=replay_model(fixture),
-        dispatch_fn=lambda tool_name, raw_arguments, approve_sensitive=False: (
-            offline_dispatch_tool(
-                fixture,
-                tool_name,
-                raw_arguments,
-                approve_sensitive=approve_sensitive,
-            )
-        ),
+        dispatch_fn=dispatch_with_evidence,
     )
+    result["_evaluation_trace"] = evaluation_trace
+    return result

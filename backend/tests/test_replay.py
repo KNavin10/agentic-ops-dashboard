@@ -17,11 +17,10 @@ def test_replay_fixture_uses_run_agent_hook_without_groq(monkeypatch):
 
     assert result["status"] == "ok"
     assert result["answer"] == "45 APAC submissions were late."
-    assert result["trace"][0]["tool"] == "query_submissions"
-    assert result["trace"][0]["args"] == {
-        "region": "APAC",
-        "max_rows": 200,
+    assert set(result["trace"][0]) == {
+        "step", "tool", "duration_ms", "result_size", "status",
     }
+    assert result["trace"][0]["tool"] == "query_submissions"
 
 
 def test_offline_policy_replay_does_not_call_rag_or_ollama(monkeypatch):
@@ -47,7 +46,7 @@ def test_offline_policy_replay_does_not_call_rag_or_ollama(monkeypatch):
 
     assert result["status"] == "ok"
     assert result["answer"]
-    match = result["trace"][0]["result"]["matches"][0]
+    match = result["_evaluation_trace"][0]["result"]["matches"][0]
     assert match["source"] == "policies/sla_policy.md"
     assert match["chunk_id"] == "policies/sla_policy.md:chunk-0001"
 
@@ -59,4 +58,4 @@ def test_offline_replay_keeps_sqlite_tools_real():
     )
 
     assert result["status"] == "ok"
-    assert len(result["trace"][0]["result"]["rows"]) == 63
+    assert len(result["_evaluation_trace"][0]["result"]["rows"]) == 63

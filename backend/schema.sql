@@ -12,3 +12,22 @@ CREATE TABLE IF NOT EXISTS submissions (
 CREATE INDEX IF NOT EXISTS idx_submissions_region ON submissions (region);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions (status);
 CREATE INDEX IF NOT EXISTS idx_submissions_submission_date ON submissions (submission_date);
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+    request_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    user_id TEXT,
+    question_hash TEXT NOT NULL,
+    question_length INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    steps INTEGER NOT NULL,
+    tool_sequence TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    cost_usd REAL NOT NULL,
+    latency_ms INTEGER NOT NULL,
+    cache_hit INTEGER NOT NULL DEFAULT 0,
+    cited INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_created_at ON agent_runs (created_at);

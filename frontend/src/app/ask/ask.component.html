@@ -29,12 +29,32 @@
     {{ errorMessage || statusMessage }}
   </p>
 
+  <section class="metrics-grid" aria-label="Today's agent metrics">
+    <article class="metric-card">
+      <span>Runs today</span>
+      <strong>{{ metrics.runs_today }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Success rate</span>
+      <strong>{{ metrics.success_rate | number:'1.0-1' }}%</strong>
+    </article>
+    <article class="metric-card">
+      <span>Average steps</span>
+      <strong>{{ metrics.average_steps | number:'1.0-1' }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Spend today</span>
+      <strong>{{ metrics.spend_today_usd | currency:'USD':'symbol':'1.2-6' }}</strong>
+    </article>
+  </section>
+
   <section class="results-grid">
     <article class="panel answer-panel">
       <div class="panel-heading">
         <h2>Written answer</h2>
         <span class="status-pill">{{ statusMessage }}</span>
       </div>
+      <p *ngIf="latestRequestId" class="request-id">Request ID: {{ latestRequestId }}</p>
       <p class="answer" [class.muted]="!answer">
         {{ answer || 'The written answer will appear here.' }}
       </p>

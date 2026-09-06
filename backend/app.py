@@ -39,7 +39,7 @@ def ask_model(messages: list[dict], client=None, model_fn=None) -> dict:
 
     response = model_fn(
         model="openai/gpt-oss-120b",
-        max_tokens=500,
+        max_completion_tokens=500,
         temperature=0,
         tools=TOOLS,
         messages=[SYSTEM, *messages],

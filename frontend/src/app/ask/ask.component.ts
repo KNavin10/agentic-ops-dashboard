@@ -14,6 +14,7 @@ import Highcharts from 'highcharts';
 
 import {
   AgentApiService,
+  AgentMetrics,
   ApprovalRequest,
   AskResponse,
   DataRow,
@@ -38,6 +39,13 @@ export class AskComponent implements AfterViewInit, OnDestroy {
   statusMessage = 'Ready';
   errorMessage = '';
   loading = false;
+  metrics: AgentMetrics = {
+    runs_today: 0,
+    success_rate: 0,
+    average_steps: 0,
+    spend_today_usd: 0,
+  };
+  latestRequestId = '';
 
   private chart?: Highcharts.Chart;
   private readonly api = inject(AgentApiService);
@@ -45,6 +53,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.renderChart();
+    this.refreshMetrics();
   }
 
   submit(approveSensitive = false): void {
@@ -64,6 +73,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
       timeout(30000),
       finalize(() => {
         this.loading = false;
+        this.refreshMetrics();
         this.changeDetector.detectChanges();
       }),
     ).subscribe({
@@ -107,6 +117,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
       })
       .finally(() => {
         this.loading = false;
+        this.refreshMetrics();
         this.changeDetector.detectChanges();
       });
   }
@@ -126,6 +137,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
   }
 
   private showResponse(response: AskResponse): void {
+    this.latestRequestId = response.request_id || '';
     this.answer = response.answer || '';
     this.trace = response.trace || [];
     this.rows = response.rows || [];
@@ -151,13 +163,25 @@ export class AskComponent implements AfterViewInit, OnDestroy {
     } else if (event.type === 'approval') {
       this.approval = { tool: event.tool, arguments: event.arguments };
       this.statusMessage = 'awaiting_approval';
+    } else if (event.type === 'done') {
+      this.latestRequestId = event.request_id || '';
     }
 
     this.changeDetector.detectChanges();
   }
 
+  private refreshMetrics(): void {
+    this.api.getMetrics().subscribe({
+      next: (metrics) => {
+        this.metrics = metrics;
+        this.changeDetector.detectChanges();
+      },
+    });
+  }
+
   private clearResults(): void {
     this.answer = '';
+    this.latestRequestId = '';
     this.trace = [];
     this.rows = [];
     this.approval = null;
