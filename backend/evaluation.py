@@ -10,8 +10,8 @@ def _check(name: str, passed: bool, message: str) -> dict:
 
 
 def _trace(result: dict) -> list[dict]:
-    """Read the raw run_agent trace, including args and tool results."""
-    return result.get("trace", [])
+    """Use replay-only evidence when available; public traces stay safe."""
+    return result.get("_evaluation_trace", result.get("trace", []))
 
 
 def structural_assertions(case: dict, result: dict) -> list[dict]:

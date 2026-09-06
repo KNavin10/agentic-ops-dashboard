@@ -5,3 +5,4 @@ __pycache__/
 output/
 outbox/
 vectorstore/
+backend/data/operations.db

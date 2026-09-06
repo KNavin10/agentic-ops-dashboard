@@ -17,16 +17,12 @@ def sanitize_trace(trace: list[dict]) -> list[dict]:
     safe_trace = []
 
     for entry in trace:
-        result = entry.get("result", {})
-        status = "ok"
-
-        if isinstance(result, dict):
-            status = result.get("status", "error" if result.get("error") else "ok")
-
         safe_trace.append({
             "step": entry.get("step"),
             "tool": entry.get("tool"),
-            "status": status,
+            "duration_ms": entry.get("duration_ms", 0),
+            "result_size": entry.get("result_size", 0),
+            "status": entry.get("status", "ok"),
         })
 
     return safe_trace
@@ -49,7 +45,10 @@ def to_api_response(result: dict) -> dict:
         "trace": sanitize_trace(result.get("trace", [])),
     }
 
-    for field in ("answer", "message", "tokens"):
+    for field in (
+        "answer", "message", "tokens", "request_id", "input_tokens",
+        "output_tokens", "cost_usd", "latency_ms", "cached",
+    ):
         if field in result:
             response[field] = result[field]
 

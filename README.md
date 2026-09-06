@@ -212,6 +212,31 @@ use browser `EventSource`, because it sends a GET request. The current backend
 computes the complete answer first and then emits the NDJSON events; it is a
 simple streaming-shaped response, not live provider token streaming.
 
+## Step 9: Live measurement
+
+Measured on 2026-09-06 (Asia/Kolkata) after starting the backend with the
+normal uvicorn command. I ran 10 representative read-only questions and then
+repeated the first 5 questions exactly.
+
+| Measurement | Measured value |
+| --- | --- |
+| Measurement date | 2026-09-06 |
+| Model ID | `openai/gpt-oss-120b` |
+| Number of requests | 15 (10 uncached, 5 cached repeats) |
+| Average input/output tokens | 1,657 / 277 per request across all 15 responses; uncached only: 2,486 / 415 |
+| Average cost per successful request | `$0.00041451` (15 successful responses) |
+| p95 uncached latency | 29,799 ms |
+| p95 cached latency | 0 ms |
+| Cache hit rate | 33.33% (5 of 15) |
+| Measured repeat-question saving | 5 of 5 repeats were cache hits: 15,501 model tokens and `$0.00338625` of model cost avoided (100% saving for the repeats) |
+| Daily ceiling used for the demo | `$0.00621765` of the `$1.00` ceiling (0.62%) |
+
+The final authenticated `/metrics` response reported 15 requests, 100%
+success, 29,799 ms overall p95 latency, 29,004 tokens today,
+`$0.00621765` spent today, and a 33.33% cache-hit rate. Cached latency is
+reported as 0 ms because the application timer rounds the in-process cache
+lookup to the nearest millisecond.
+
 ## Tests and CI
 
 Run the backend checks locally:

@@ -25,3 +25,9 @@ class AskResponse(BaseModel):
     rows: list[dict] = Field(default_factory=list)
     approval: dict | None = None
     tokens: int = 0
+    request_id: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
+    latency_ms: int | None = None
+    cached: bool | None = None

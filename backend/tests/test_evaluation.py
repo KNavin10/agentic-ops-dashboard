@@ -70,7 +70,7 @@ def test_removing_policy_citation_fails_citation_case():
         "What is the filing deadline for APAC entities?",
         fixture,
     )
-    result["trace"][0]["result"]["matches"][0].pop("chunk_id")
+    result["_evaluation_trace"][0]["result"]["matches"][0].pop("chunk_id")
 
     evaluation = evaluate_case(case, result)
 
