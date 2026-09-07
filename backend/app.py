@@ -8,6 +8,7 @@ from tool_schemas import TOOLS
 load_dotenv()
 
 _client = None
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def _get_client():
@@ -38,7 +39,7 @@ def ask_model(messages: list[dict], client=None, model_fn=None) -> dict:
         model_fn = active_client.chat.completions.create
 
     response = model_fn(
-        model="openai/gpt-oss-120b",
+        model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
         max_completion_tokens=500,
         temperature=0,
         tools=TOOLS,

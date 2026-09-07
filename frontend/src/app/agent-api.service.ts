@@ -49,17 +49,16 @@ export type StreamEvent =
 @Injectable({ providedIn: 'root' })
 export class AgentApiService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:8000';
 
   ask(question: string, approveSensitive = false): Observable<AskResponse> {
-    return this.http.post<AskResponse>(`${this.apiUrl}/api/ask`, {
+    return this.http.post<AskResponse>('/api/ask', {
       question,
       approve_sensitive: approveSensitive,
     });
   }
 
   getMetrics(): Observable<AgentMetrics> {
-    return this.http.get<AgentMetrics>(`${this.apiUrl}/metrics`);
+    return this.http.get<AgentMetrics>('/metrics');
   }
 
   async askStream(
@@ -67,12 +66,17 @@ export class AgentApiService {
     approveSensitive: boolean,
     onEvent: (event: StreamEvent) => void,
   ): Promise<void> {
-    const response = await fetch(`${this.apiUrl}/api/ask/stream`, {
+    const token = localStorage.getItem('agent_api_token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch('/api/ask/stream', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('agent_api_token') || 'local-dev-token'}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         question,
         approve_sensitive: approveSensitive,

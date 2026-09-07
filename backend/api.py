@@ -1,29 +1,47 @@
 import json
 import logging
+import os
+import sqlite3
 import time
 from copy import deepcopy
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 import observability
+import rag
 from auth import LocalUser, get_current_user
 from db import db
 from models import AskRequest, AskResponse
 from service import answer_question
 
+load_dotenv()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def configured_allowed_origins() -> list[str]:
+    return [
+        origin.strip()
+        for origin in os.getenv(
+            "ALLOWED_ORIGINS",
+            "http://localhost:4200,http://127.0.0.1:4200",
+        ).split(",")
+        if origin.strip()
+    ]
+
+
+ALLOWED_ORIGINS = configured_allowed_origins()
+APP_VERSION = os.getenv("APP_VERSION", "dev")
 
 app = FastAPI(title="Agentic Regulatory Ops Dashboard")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4200",
-        "http://127.0.0.1:4200",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +51,51 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/version")
+def version() -> dict[str, str]:
+    return {"version": APP_VERSION}
+
+
+def _check_sqlite() -> None:
+    with sqlite3.connect(db.DB_PATH) as connection:
+        connection.execute("SELECT 1")
+
+
+def _check_chroma() -> None:
+    rag.collection.count()
+
+
+def _check_ollama() -> None:
+    rag.ollama_client.list()
+
+
+def _readiness_checks() -> dict[str, str]:
+    checks = {}
+    for name, check in (
+        ("sqlite", _check_sqlite),
+        ("chroma", _check_chroma),
+        ("ollama", _check_ollama),
+    ):
+        try:
+            check()
+        except Exception:  # noqa: BLE001 - readiness must report dependency failures
+            checks[name] = "error"
+        else:
+            checks[name] = "ok"
+    return checks
+
+
+@app.get("/ready")
+def ready() -> JSONResponse:
+    checks = _readiness_checks()
+    ready_status = all(value == "ok" for value in checks.values())
+    body = {
+        "status": "ready" if ready_status else "not_ready",
+        "checks": checks,
+    }
+    return JSONResponse(status_code=200 if ready_status else 503, content=body)
 
 
 def _trace_tools(trace: list[dict]) -> list[str]:

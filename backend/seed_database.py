@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
+import os
 import random
 import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parent
-DATABASE_PATH = ROOT / "data" / "operations.db"
+load_dotenv()
+
+
+def get_data_directory() -> Path:
+    return Path(os.getenv("APP_DATA_DIR") or ROOT / "data")
+
+
+DATA_DIR = get_data_directory()
+DATABASE_PATH = DATA_DIR / "operations.db"
 SCHEMA_PATH = ROOT / "schema.sql"
 ROW_COUNT = 200
 

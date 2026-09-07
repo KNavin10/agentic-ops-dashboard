@@ -1,10 +1,23 @@
 import json
 import math
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "data" / "operations.db"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def get_data_directory() -> Path:
+    return Path(os.getenv("APP_DATA_DIR") or DEFAULT_DATA_DIR)
+
+
+DATA_DIR = get_data_directory()
+DB_PATH = DATA_DIR / "operations.db"
 
 
 class Database:

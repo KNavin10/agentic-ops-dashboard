@@ -13,11 +13,18 @@ if not POLICIES_PATH.exists():
 
 POLICY_PATH = POLICIES_PATH / "sla_policy.md"
 SOURCE = "policies/sla_policy.md"
-VECTORSTORE_PATH = PROJECT_ROOT / "vectorstore"
 COLLECTION_NAME = "reg_policies"
 TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 load_dotenv()
+
+
+def get_data_directory() -> Path:
+    return Path(os.getenv("APP_DATA_DIR") or PROJECT_ROOT)
+
+
+DATA_DIR = get_data_directory()
+VECTORSTORE_PATH = DATA_DIR / "vectorstore"
 ollama_client = ollama.Client(
     host=os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
 )

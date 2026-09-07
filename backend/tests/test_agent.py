@@ -1,3 +1,4 @@
+import importlib
 import json
 from types import SimpleNamespace
 
@@ -47,6 +48,20 @@ def test_agent_stops_at_max_steps(monkeypatch):
     assert result["status"] == "max_steps"
     assert len(result["trace"]) == agent.MAX_STEPS
     assert calls["model"] == agent.MAX_STEPS
+
+
+def test_agent_limits_are_read_from_environment(monkeypatch):
+    original_limits = agent.MAX_STEPS, agent.TOKEN_BUDGET
+    monkeypatch.setenv("MAX_AGENT_STEPS", "3")
+    monkeypatch.setenv("TOKEN_BUDGET", "17")
+
+    importlib.reload(agent)
+
+    try:
+        assert agent.MAX_STEPS == 3
+        assert agent.TOKEN_BUDGET == 17
+    finally:
+        agent.MAX_STEPS, agent.TOKEN_BUDGET = original_limits
 
 
 def test_agent_stops_when_token_budget_is_exceeded():
