@@ -1,0 +1,13 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+backend/.env
+backend/vectorstore
+backend/data/*.db
+backend/outbox
+output
+frontend/node_modules
+frontend/dist
+.pytest_cache
+.ruff_cache
