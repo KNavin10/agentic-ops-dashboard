@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 from app import ask_model
@@ -6,8 +7,8 @@ from approvals import ask_for_approval, build_approval_request
 from tool_schemas import SENSITIVE
 from tools import TOOL_REGISTRY
 
-MAX_STEPS = 8
-TOKEN_BUDGET = 8000
+MAX_STEPS = int(os.getenv("MAX_AGENT_STEPS", "8"))
+TOKEN_BUDGET = int(os.getenv("TOKEN_BUDGET", "8000"))
 
 
 def run_agent(

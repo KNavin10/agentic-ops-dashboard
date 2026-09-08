@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -12,7 +13,16 @@ from models import BreachReasonArgs, QueryArgs, SearchPoliciesArgs
 MAX_POLICY_DISTANCE = 1.0
 
 
+def get_data_directory() -> Path | None:
+    configured_data_dir = os.getenv("APP_DATA_DIR")
+    return Path(configured_data_dir) if configured_data_dir else None
+
+
 def get_output_directory() -> Path:
+    data_directory = get_data_directory()
+    if data_directory:
+        return data_directory / "output"
+
     backend_directory = Path(__file__).resolve().parent
     local_output = backend_directory / "output"
     root_output = backend_directory.parent / "output"
@@ -163,7 +173,13 @@ def email_summary(raw: dict) -> dict:
             "message": "Email file was not written.",
         }
 
-    outbox_path = Path(__file__).resolve().parent / "outbox" / "email_summary.json"
+    data_directory = get_data_directory()
+    outbox_directory = (
+        data_directory / "outbox"
+        if data_directory
+        else Path(__file__).resolve().parent / "outbox"
+    )
+    outbox_path = outbox_directory / "email_summary.json"
 
     outbox_path.parent.mkdir(exist_ok=True)
 

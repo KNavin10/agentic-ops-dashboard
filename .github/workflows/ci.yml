@@ -27,6 +27,9 @@ jobs:
 
       - run: python -m pip install -r backend/requirements.txt
 
+      - name: Seed test database
+        run: python backend/seed_database.py
+
       - run: python evals/run_evals.py --offline --config evals/config.yaml
 
   test:
@@ -50,6 +53,9 @@ jobs:
 
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+
+      - name: Seed test database
+        run: python seed_database.py
 
       - name: Run Ruff
         run: ruff check .
@@ -202,7 +208,7 @@ jobs:
       - dependency-audit
       - secret-scan
       - docker-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: read
       packages: write

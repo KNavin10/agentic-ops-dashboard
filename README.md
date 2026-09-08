@@ -15,7 +15,7 @@ rows, a simple chart, agent steps, and approval requests.
 | Study-guide area | Current implementation |
 | --- | --- |
 | Day 3: tool calling | Six function tools with JSON schemas, Pydantic argument models, SQLite queries, result shaping, and a tool registry. |
-| Day 4: agent loop | A bounded loop with `MAX_STEPS = 8`, a token budget, an in-memory trace, and a simple prompt-injection guardrail. |
+| Day 4: agent loop | A bounded loop with configurable step and token budgets, an in-memory trace, and a simple prompt-injection guardrail. |
 | Day 4: human approval | `export_report` and `email_summary` are sensitive tools and require approval before writing local files. |
 | Day 5: RAG | Markdown policy chunking, Ollama embeddings, persistent ChromaDB storage, source/chunk metadata, a distance cutoff, and `INSUFFICIENT_DATA`. |
 | Day 6: MCP | A local stdio MCP server exposing the read-only `query_submissions` and `search_policies` tools. |
@@ -102,8 +102,12 @@ Create `backend/.env` with the provider settings used by the application:
 
 ```env
 GROQ_API_KEY=your_groq_key
+GROQ_MODEL=openai/gpt-oss-120b
 OLLAMA_HOST=http://127.0.0.1:11434
 OLLAMA_EMBEDDING_MODEL=qwen3-embedding
+API_TOKEN=your_local_token
+ALLOWED_ORIGINS=http://localhost:4200
+APP_VERSION=dev
 ```
 
 The Groq key is used for the agent model. Ollama and the configured embedding
@@ -118,7 +122,8 @@ From `D:\agentic-ops-dashboard\backend`, recreate the deterministic database:
 ```
 
 The seed script clears the existing `submissions` table before inserting 200
-fake rows.
+fake rows. Set `APP_DATA_DIR=/app/storage` in a container; when it is unset,
+the local database remains under `backend/data/`.
 
 Start Ollama and make `OLLAMA_EMBEDDING_MODEL` available, then build the local
 ChromaDB collection:
@@ -127,9 +132,10 @@ ChromaDB collection:
 ..\.venv\Scripts\python.exe .\ingest_policies.py
 ```
 
-The policy index is stored in `backend/vectorstore/` and uses the
-`reg_policies` collection. Chunks preserve Markdown headings and store
-`source`, `chunk_id`, `section`, and an estimated token count.
+The policy index is stored in `${APP_DATA_DIR}/vectorstore/` when configured,
+or `backend/vectorstore/` for local defaults. It uses the `reg_policies`
+collection. Chunks preserve Markdown headings and store `source`, `chunk_id`,
+`section`, and an estimated token count.
 
 ## Start the application
 
@@ -147,18 +153,19 @@ cd D:\agentic-ops-dashboard\frontend
 npm start
 ```
 
-Open <http://localhost:4200/>. The frontend calls FastAPI at
-`http://localhost:8000`, and FastAPI allows the local Angular origins on port
-4200.
+Open <http://localhost:4200/>. The Angular development proxy forwards the
+same-origin `/api` and `/metrics` requests to FastAPI at
+`http://localhost:8000`.
 
 ## Authentication example
 
-This learning app uses the fixed local development token
-`local-dev-token`. The Angular interceptor adds it automatically. To call the
-normal API directly from PowerShell:
+Set `API_TOKEN` in `backend/.env`. If using the browser, store the same value
+in local storage under the `agent_api_token` key. The frontend sends a token
+only when one has been configured. To call the normal API directly from
+PowerShell:
 
 ```powershell
-$headers = @{ Authorization = 'Bearer local-dev-token' }
+$headers = @{ Authorization = 'Bearer <your API_TOKEN value>' }
 $body = @{ question = 'Show three late APAC submissions.'; approve_sensitive = $false } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -169,14 +176,16 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-Requests without this header receive HTTP 401. This token is for local
-learning only; it is not real user authentication.
+Requests without this header receive HTTP 401. This learning app still does
+not provide real user authentication.
 
 ## Approval behavior
 
 Read-only tools run normally. `export_report` and `email_summary` pause with
 `status: "awaiting_approval"` and return the tool name and arguments in the
 `approval` field before writing anything.
+When `APP_DATA_DIR` is configured, approved CSV exports and email outbox files
+are written under its `output/` and `outbox/` subdirectories.
 
 In the Angular UI:
 
@@ -326,8 +335,8 @@ learning steps.
 
 ## Current limitations
 
-- Authentication is a fixed local bearer token, with no real users, sessions,
-  roles, or production identity provider.
+- Authentication uses one configured bearer token, with no real users,
+  sessions, roles, or production identity provider.
 - The agent trace is kept in memory. It is sanitized for the API response but
   is not a durable audit record.
 - The input guardrail is intentionally small and is not a complete
@@ -341,5 +350,4 @@ learning steps.
 - Submission data, exports, and the email outbox are local files/SQLite data;
   the email tool does not send email.
 - CI runs the Angular production build but does not run Angular unit tests.
-- The app is configured for local development only: fixed localhost API/CORS
-  settings, no deployment configuration, and no production security review.
+- There is no production identity provider or production security review.

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 import api
 import app as model_app
+import auth
 import service
 import tools
 
@@ -48,8 +49,13 @@ def fail_if_external_provider_is_reached(monkeypatch):
     monkeypatch.setattr(tools.rag, "embed_chunks", fail)
 
 
+@pytest.fixture(autouse=True)
+def configure_test_api_token(monkeypatch):
+    monkeypatch.setattr(auth, "API_TOKEN", "test-api-token")
+
+
 def auth_headers():
-    return {"Authorization": "Bearer local-dev-token"}
+    return {"Authorization": "Bearer test-api-token"}
 
 
 def fake_result(**overrides):
@@ -226,6 +232,66 @@ def test_metrics_requires_auth_and_returns_today_metrics(fake_db):
     response = client.get("/metrics", headers=auth_headers())
     assert response.status_code == 200
     assert response.json() == {"runs_today": 0}
+
+
+def test_health_is_lightweight(monkeypatch):
+    def fail_if_called():
+        raise AssertionError("health must not check dependencies")
+
+    monkeypatch.setattr(api, "_check_sqlite", fail_if_called)
+    monkeypatch.setattr(api, "_check_chroma", fail_if_called)
+    monkeypatch.setattr(api, "_check_ollama", fail_if_called)
+
+    response = TestClient(api.app).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_version_returns_configured_app_version(monkeypatch):
+    monkeypatch.setattr(api, "APP_VERSION", "test-version")
+
+    response = TestClient(api.app).get("/version")
+
+    assert response.status_code == 200
+    assert response.json() == {"version": "test-version"}
+
+
+def test_ready_checks_sqlite_chroma_and_ollama(monkeypatch):
+    checked = []
+
+    for name in ("sqlite", "chroma", "ollama"):
+        monkeypatch.setattr(
+            api,
+            f"_check_{name}",
+            lambda name=name: checked.append(name),
+        )
+
+    response = TestClient(api.app).get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "checks": {"sqlite": "ok", "chroma": "ok", "ollama": "ok"},
+    }
+    assert checked == ["sqlite", "chroma", "ollama"]
+
+
+def test_ready_returns_503_when_a_dependency_is_unavailable(monkeypatch):
+    def fail_ollama():
+        raise RuntimeError("ollama unavailable")
+
+    monkeypatch.setattr(api, "_check_sqlite", lambda: None)
+    monkeypatch.setattr(api, "_check_chroma", lambda: None)
+    monkeypatch.setattr(api, "_check_ollama", fail_ollama)
+
+    response = TestClient(api.app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {"sqlite": "ok", "chroma": "ok", "ollama": "error"},
+    }
 
 
 def test_metrics_endpoint_returns_aggregated_usage_from_isolated_sqlite(tmp_path, monkeypatch):
