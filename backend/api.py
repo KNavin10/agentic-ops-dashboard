@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 import observability
 import rag
@@ -377,3 +378,10 @@ def ask_stream(
             yield json.dumps(event, ensure_ascii=False) + "\n"
 
     return StreamingResponse(body(), media_type="application/x-ndjson")
+
+
+app.mount(
+    "/",
+    StaticFiles(directory="/app/frontend/dist/frontend/browser", html=True, check_dir=False),
+    name="frontend",
+)
