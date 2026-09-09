@@ -2,18 +2,30 @@ import json
 import os
 import time
 
+from pydantic import ValidationError
+
 from app import ask_model
-from approvals import ask_for_approval, build_approval_request
+from approvals import ask_for_approval, create_approval, decide_approval, mark_executed
+from models import BreachReasonArgs, EmailSummaryArgs, QueryArgs, SearchPoliciesArgs
 from tool_schemas import SENSITIVE
 from tools import TOOL_REGISTRY
 
 MAX_STEPS = int(os.getenv("MAX_AGENT_STEPS", "8"))
 TOKEN_BUDGET = int(os.getenv("TOKEN_BUDGET", "8000"))
 
+ARGUMENT_MODELS = {
+    "query_submissions": QueryArgs,
+    "get_breach_reasons": BreachReasonArgs,
+    "aggregate_by_month": QueryArgs,
+    "export_report": QueryArgs,
+    "email_summary": EmailSummaryArgs,
+    "search_policies": SearchPoliciesArgs,
+}
+
 
 def run_agent(
     question: str,
-    approve_sensitive: bool = False,
+    requester: str = "local-dev-user",
     model_fn=None,
     dispatch_fn=None,
 ) -> dict:
@@ -59,11 +71,14 @@ def run_agent(
             arguments = json.loads(tool_call.function.arguments)
 
             started = time.perf_counter()
-            result = active_dispatch(
-                tool_name,
-                arguments,
-                approve_sensitive=approve_sensitive,
-            )
+            if dispatch_fn is None:
+                result = active_dispatch(
+                    tool_name,
+                    arguments,
+                    requester=requester,
+                )
+            else:
+                result = active_dispatch(tool_name, arguments)
             duration_ms = round((time.perf_counter() - started) * 1000)
 
             if isinstance(result, dict):
@@ -123,7 +138,7 @@ def run_agent(
 def dispatch_tool(
     tool_name: str,
     raw_arguments: dict,
-    approve_sensitive: bool = False,
+    requester: str = "local-dev-user",
 ) -> dict:
     if tool_name not in TOOL_REGISTRY:
         return {
@@ -131,16 +146,39 @@ def dispatch_tool(
             "tool": tool_name,
         }
 
-    if tool_name in SENSITIVE and not approve_sensitive:
+    argument_model = ARGUMENT_MODELS[tool_name]
+    try:
+        argument_model.model_validate(raw_arguments)
+    except ValidationError:
+        return {"error": "Invalid arguments", "tool": tool_name}
+    arguments = dict(raw_arguments)
+
+    if tool_name in SENSITIVE:
         return {
             "status": "awaiting_approval",
-            "approval": build_approval_request(tool_name, raw_arguments),
+            "approval": create_approval(tool_name, arguments, requester),
         }
 
     handler = TOOL_REGISTRY[tool_name]
-    approved_arguments = dict(raw_arguments)
-    approved_arguments["_approved"] = True
-    return handler(approved_arguments)
+    return handler(arguments)
+
+
+def execute_approved_tool(approval: dict) -> dict:
+    """Execute exactly the arguments stored in an approved record."""
+    tool_name = approval["tool"]
+    handler = TOOL_REGISTRY.get(tool_name)
+    if handler is None or tool_name not in SENSITIVE:
+        return {"error": "unknown_tool", "tool": tool_name}
+
+    if tool_name == "export_report":
+        result = handler(dict(approval["arguments"]), approved=True)
+        mark_executed(approval["approval_id"])
+        return result
+    if tool_name == "email_summary":
+        result = handler(dict(approval["arguments"]), approved=True)
+        mark_executed(approval["approval_id"])
+        return result
+    return {"error": "unsupported_approval_tool", "tool": tool_name}
 
 
 if __name__ == "__main__":
@@ -150,8 +188,15 @@ if __name__ == "__main__":
     if result.get("status") == "awaiting_approval":
         approval = result["approval"]
         if ask_for_approval(approval["tool"], approval["arguments"]):
-            result = run_agent(question, approve_sensitive=True)
+            decided = decide_approval(
+                approval["approval_id"], "approve", approval["requester"]
+            )
+            result = execute_approved_tool(decided) if decided else {
+                "status": "cancelled",
+                "message": "Approval was already decided.",
+            }
         else:
+            decide_approval(approval["approval_id"], "decline", approval["requester"])
             result = {
                 "status": "cancelled",
                 "message": f'{approval["tool"]} cancelled by user.',

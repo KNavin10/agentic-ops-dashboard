@@ -1,0 +1,17 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "query_submissions",
+          "arguments": {
+            "region": "ALL"
+          }
+        }
+      ]
+    },
+    {
+      "text": "The requested region is not supported."
+    }
+  ]
+}

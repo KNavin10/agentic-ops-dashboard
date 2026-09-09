@@ -1,0 +1,36 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - agentic-ops
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      start_period: 5s
+      retries: 20
+
+  ollama-init:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - agentic-ops
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["ollama"]
+    command: ["pull", "qwen3-embedding"]
+
+volumes:
+  ollama-models:
+    name: agentic-ops-ollama-models
+
+networks:
+  agentic-ops:
+    name: agentic-ops-network

@@ -65,14 +65,12 @@ def test_export_and_email_outbox_use_the_configured_directory(tmp_path, monkeypa
     export_result = tools.export_report({
         "region": "APAC",
         "max_rows": 1,
-        "_approved": True,
-    })
+    }, approved=True)
     email_result = tools.email_summary({
         "recipient": "recipient@example.invalid",
         "subject": "Subject",
         "body": "Body",
-        "_approved": True,
-    })
+    }, approved=True)
 
     assert Path(export_result["path"]) == tmp_path / "output" / "apac_report.csv"
     assert Path(email_result["path"]) == tmp_path / "outbox" / "email_summary.json"

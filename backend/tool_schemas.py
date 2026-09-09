@@ -28,6 +28,7 @@ TOOLS = [
                     },
                 },
                 "required": ["region"],
+                "additionalProperties": False,
             },
         },
     },
@@ -52,6 +53,7 @@ TOOLS = [
                     }
                 },
                 "required": ["ids"],
+                "additionalProperties": False,
             },
         },
     },
@@ -74,6 +76,7 @@ TOOLS = [
                     },
                 },
                 "required": ["region"],
+                "additionalProperties": False,
             },
         },
     },
@@ -96,6 +99,7 @@ TOOLS = [
                     },
                 },
                 "required": ["region"],
+                "additionalProperties": False,
             },
         },
     },
@@ -113,18 +117,22 @@ TOOLS = [
                 "properties": {
                     "recipient": {
                         "type": "string",
+                        "format": "email",
                         "description": "Email address that should receive the summary."
                     },
                     "subject": {
                         "type": "string",
+                        "maxLength": 200,
                         "description": "Subject of the email."
                     },
                     "body": {
                         "type": "string",
+                        "maxLength": 5000,
                         "description": "Summary text for the email."
                     },
                 },
                 "required": ["recipient", "subject", "body"],
+                "additionalProperties": False,
             },
         },
     },
@@ -151,6 +159,7 @@ TOOLS = [
                     },
                 },
                 "required": ["question"],
+                "additionalProperties": False,
             },
         },
     },

@@ -56,7 +56,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
     this.refreshMetrics();
   }
 
-  submit(approveSensitive = false): void {
+  submit(): void {
     const trimmedQuestion = this.question.trim();
 
     if (!trimmedQuestion || this.loading) {
@@ -66,10 +66,10 @@ export class AskComponent implements AfterViewInit, OnDestroy {
 
     this.loading = true;
     this.errorMessage = '';
-    this.statusMessage = approveSensitive ? 'Submitting approval...' : 'Asking the agent...';
+    this.statusMessage = 'Asking the agent...';
     this.clearResults();
 
-    this.api.ask(trimmedQuestion, approveSensitive).pipe(
+    this.api.ask(trimmedQuestion).pipe(
       timeout(30000),
       finalize(() => {
         this.loading = false;
@@ -105,7 +105,7 @@ export class AskComponent implements AfterViewInit, OnDestroy {
     this.statusMessage = 'Opening stream...';
     this.clearResults();
 
-    this.api.askStream(trimmedQuestion, false, (event) => this.showStreamEvent(event))
+    this.api.askStream(trimmedQuestion, (event) => this.showStreamEvent(event))
       .then(() => {
         if (!this.approval) {
           this.statusMessage = 'ok';
@@ -123,13 +123,28 @@ export class AskComponent implements AfterViewInit, OnDestroy {
   }
 
   declineApproval(): void {
+    if (!this.approval) {
+      return;
+    }
+    const approvalId = this.approval.approval_id;
     this.approval = null;
-    this.statusMessage = 'Approval declined. No write request was sent.';
+    this.api.decideApproval(approvalId, 'decline').subscribe({
+      next: (response) => this.showResponse(response),
+      error: () => this.statusMessage = 'Approval request could not be declined.',
+    });
   }
 
   approveRequest(): void {
+    if (!this.approval) {
+      return;
+    }
+    const approvalId = this.approval.approval_id;
     this.approval = null;
-    this.submit(true);
+    this.statusMessage = 'Submitting approval...';
+    this.api.decideApproval(approvalId, 'approve').subscribe({
+      next: (response) => this.showResponse(response),
+      error: () => this.statusMessage = 'Approval request could not be completed.',
+    });
   }
 
   ngOnDestroy(): void {
@@ -161,7 +176,11 @@ export class AskComponent implements AfterViewInit, OnDestroy {
       this.rows = event.rows;
       this.renderChart();
     } else if (event.type === 'approval') {
-      this.approval = { tool: event.tool, arguments: event.arguments };
+      this.approval = {
+        approval_id: event.approval_id,
+        tool: event.tool,
+        arguments: event.arguments,
+      };
       this.statusMessage = 'awaiting_approval';
     } else if (event.type === 'done') {
       this.latestRequestId = event.request_id || '';

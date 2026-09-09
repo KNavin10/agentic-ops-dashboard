@@ -1,0 +1,9 @@
+{
+  "responses": [
+    {
+      "input_tokens": 8000,
+      "output_tokens": 1,
+      "text": "The token budget was exceeded."
+    }
+  ]
+}

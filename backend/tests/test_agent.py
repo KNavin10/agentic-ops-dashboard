@@ -40,7 +40,7 @@ def test_agent_stops_at_max_steps(monkeypatch):
     monkeypatch.setattr(
         agent,
         "dispatch_tool",
-        lambda tool_name, raw_arguments, approve_sensitive=False: {"status": "ok"},
+        lambda tool_name, raw_arguments, requester="local-dev-user": {"status": "ok"},
     )
 
     result = agent.run_agent("keep working", model_fn=fake_model)
@@ -123,7 +123,6 @@ def test_agent_records_safe_tool_measurements_and_separate_token_totals(monkeypa
 def test_agent_approval_path_keeps_usage_fields_and_safe_trace():
     result = agent.run_agent(
         "export this",
-        approve_sensitive=False,
         model_fn=lambda **_kwargs: make_model_response(
             tool_calls=[make_tool_call()], input_tokens=4, output_tokens=5,
         ),

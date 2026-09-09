@@ -13,6 +13,7 @@ export interface DataRow {
 }
 
 export interface ApprovalRequest {
+  approval_id: string;
   tool: string;
   arguments: Record<string, unknown>;
 }
@@ -43,18 +44,21 @@ export type StreamEvent =
   | { type: 'text'; text: string }
   | { type: 'tool'; tool: string; row_count: number }
   | { type: 'rows'; rows: DataRow[] }
-  | { type: 'approval'; tool: string; arguments: Record<string, unknown> }
+  | { type: 'approval'; approval_id: string; tool: string; arguments: Record<string, unknown> }
   | { type: 'done'; request_id?: string };
 
 @Injectable({ providedIn: 'root' })
 export class AgentApiService {
   private readonly http = inject(HttpClient);
 
-  ask(question: string, approveSensitive = false): Observable<AskResponse> {
+  ask(question: string): Observable<AskResponse> {
     return this.http.post<AskResponse>('/api/ask', {
       question,
-      approve_sensitive: approveSensitive,
     });
+  }
+
+  decideApproval(approvalId: string, decision: 'approve' | 'decline'): Observable<AskResponse> {
+    return this.http.post<AskResponse>(`/api/approvals/${approvalId}`, { decision });
   }
 
   getMetrics(): Observable<AgentMetrics> {
@@ -63,7 +67,6 @@ export class AgentApiService {
 
   async askStream(
     question: string,
-    approveSensitive: boolean,
     onEvent: (event: StreamEvent) => void,
   ): Promise<void> {
     const token = localStorage.getItem('agent_api_token');
@@ -77,10 +80,7 @@ export class AgentApiService {
     const response = await fetch('/api/ask/stream', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        question,
-        approve_sensitive: approveSensitive,
-      }),
+      body: JSON.stringify({ question }),
     });
 
     if (!response.ok) {

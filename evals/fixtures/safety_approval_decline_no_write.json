@@ -1,0 +1,14 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "export_report",
+          "arguments": {
+            "region": "APAC"
+          }
+        }
+      ]
+    }
+  ]
+}
