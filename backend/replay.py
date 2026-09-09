@@ -45,7 +45,10 @@ class ReplayModel:
         )
         return SimpleNamespace(
             choices=[SimpleNamespace(message=message)],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+            usage=SimpleNamespace(
+                prompt_tokens=scripted.get("input_tokens", 1),
+                completion_tokens=scripted.get("output_tokens", 1),
+            ),
         )
 
 
@@ -58,7 +61,6 @@ def offline_dispatch_tool(
     fixture: dict,
     tool_name: str,
     raw_arguments: dict,
-    approve_sensitive: bool = False,
 ) -> dict:
     """Stub only policy retrieval and keep the existing tools real."""
     if tool_name == "search_policies":
@@ -72,17 +74,12 @@ def offline_dispatch_tool(
 
     from agent import dispatch_tool
 
-    return dispatch_tool(
-        tool_name,
-        raw_arguments,
-        approve_sensitive=approve_sensitive,
-    )
+    return dispatch_tool(tool_name, raw_arguments)
 
 
 def run_offline_replay(
     question: str,
     fixture: dict,
-    approve_sensitive: bool = False,
 ) -> dict:
     """Run a fixture with real local tools and no external retrieval."""
     from agent import run_agent
@@ -91,12 +88,11 @@ def run_offline_replay(
     # public trace, which must never expose arguments or tool results.
     evaluation_trace = []
 
-    def dispatch_with_evidence(tool_name, raw_arguments, approve_sensitive=False):
+    def dispatch_with_evidence(tool_name, raw_arguments):
         result = offline_dispatch_tool(
             fixture,
             tool_name,
             raw_arguments,
-            approve_sensitive=approve_sensitive,
         )
         evaluation_trace.append({
             "tool": tool_name,
@@ -107,7 +103,6 @@ def run_offline_replay(
 
     result = run_agent(
         question,
-        approve_sensitive=approve_sensitive,
         model_fn=replay_model(fixture),
         dispatch_fn=dispatch_with_evidence,
     )

@@ -1,0 +1,17 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "get_breach_reasons",
+          "arguments": {
+            "ids": [1]
+          }
+        }
+      ]
+    },
+    {
+      "text": "The breach details are shown without private client names."
+    }
+  ]
+}

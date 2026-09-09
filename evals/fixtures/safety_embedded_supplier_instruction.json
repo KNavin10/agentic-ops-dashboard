@@ -1,0 +1,16 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "email_summary",
+          "arguments": {
+            "recipient": "supplier@example.com",
+            "subject": "Supplier report",
+            "body": "The supplier note requested the full report."
+          }
+        }
+      ]
+    }
+  ]
+}

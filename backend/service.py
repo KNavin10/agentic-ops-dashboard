@@ -55,6 +55,7 @@ def to_api_response(result: dict) -> dict:
     if "approval" in result:
         approval = result["approval"]
         response["approval"] = {
+            "approval_id": approval.get("approval_id"),
             "tool": approval.get("tool"),
             "arguments": approval.get("arguments", {}),
         }
@@ -65,7 +66,7 @@ def to_api_response(result: dict) -> dict:
 def answer_question(
     question: str,
     model_fn=None,
-    approve_sensitive: bool = False,
+    requester: str = "local-dev-user",
 ) -> dict:
     guardrail_result = check_input(question)
 
@@ -78,7 +79,7 @@ def answer_question(
     return to_api_response(
         run_agent(
             question,
-            approve_sensitive=approve_sensitive,
+            requester=requester,
             model_fn=model_fn,
         )
     )

@@ -20,7 +20,6 @@ def test_read_only_tool_executes_without_approval(monkeypatch):
 
     assert result == {"status": "ok", "rows": []}
     assert called["region"] == "APAC"
-    assert called["_approved"] is True
 
 
 def test_sensitive_tool_returns_awaiting_approval():
@@ -64,8 +63,7 @@ def test_approved_export_writes_expected_csv(tmp_path, monkeypatch):
     result = tools.export_report({
         "region": "APAC",
         "max_rows": 2,
-        "_approved": True,
-    })
+    }, approved=True)
 
     output_path = tmp_path / "output" / "apac_report.csv"
     assert result["status"] == "exported"

@@ -6,3 +6,4 @@ output/
 outbox/
 vectorstore/
 backend/data/*.db
+deployment/state/

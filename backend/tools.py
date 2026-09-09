@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import rag
 from approvals import ask_for_approval
 from db import db
-from models import BreachReasonArgs, QueryArgs, SearchPoliciesArgs
+from models import BreachReasonArgs, EmailSummaryArgs, QueryArgs, SearchPoliciesArgs
 
 MAX_POLICY_DISTANCE = 1.0
 
@@ -31,6 +31,7 @@ def get_output_directory() -> Path:
         return root_output
 
     return local_output
+
 
 def query_submissions(raw: dict) -> dict:
     try:
@@ -72,7 +73,6 @@ def get_breach_reasons(raw: dict) -> dict:
     safe_fields = (
         "id",
         "breach_reason",
-        "client_name",
         "submission_date",
         "region",
         "days_late",
@@ -107,7 +107,7 @@ def aggregate_by_month(raw: dict) -> dict:
     }
 
 
-def export_report(raw: dict) -> dict:
+def export_report(raw: dict, *, approved: bool = False) -> dict:
     try:
         args = QueryArgs.model_validate(raw)
     except ValidationError:
@@ -127,7 +127,7 @@ def export_report(raw: dict) -> dict:
             "message": f"No submissions found for {args.region}.",
         }
 
-    if not raw.get("_approved") and not ask_for_approval("export_report", raw):
+    if not approved and not ask_for_approval("export_report", raw):
         return {
             "status": "cancelled",
             "message": "Export cancelled by user.",
@@ -156,18 +156,16 @@ def export_report(raw: dict) -> dict:
     }
 
 
-def email_summary(raw: dict) -> dict:
-    recipient = raw.get("recipient")
-    subject = raw.get("subject")
-    body = raw.get("body")
-
-    if not recipient or not subject or not body:
+def email_summary(raw: dict, *, approved: bool = False) -> dict:
+    try:
+        args = EmailSummaryArgs.model_validate(raw)
+    except ValidationError:
         return {
-            "status": "missing_email_details",
-            "message": "recipient, subject, and body are required.",
+            "status": "invalid_arguments",
+            "message": "recipient, subject, and body are required and must be valid.",
         }
 
-    if not raw.get("_approved") and not ask_for_approval("email_summary", raw):
+    if not approved and not ask_for_approval("email_summary", args.model_dump()):
         return {
             "status": "cancelled",
             "message": "Email file was not written.",
@@ -186,9 +184,9 @@ def email_summary(raw: dict) -> dict:
     with outbox_path.open("w", encoding="utf-8") as file:
         json.dump(
             {
-                "recipient": recipient,
-                "subject": subject,
-                "body": body,
+                "recipient": args.recipient,
+                "subject": args.subject,
+                "body": args.body,
             },
             file,
             indent=2,

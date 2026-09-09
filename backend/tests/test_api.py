@@ -85,7 +85,7 @@ def test_unauthenticated_api_request_returns_401(fake_db):
 
 def test_shared_boundary_records_safe_usage_fields(monkeypatch, fake_db):
     calls = []
-    monkeypatch.setattr(api, "answer_question", lambda question: calls.append(question) or fake_result())
+    monkeypatch.setattr(api, "answer_question", lambda question, **_kwargs: calls.append(question) or fake_result())
 
     response = TestClient(api.app).post(
         "/api/ask", headers=auth_headers(), json={"question": "  hello  "}
@@ -111,7 +111,7 @@ def test_cache_hit_bypasses_spend_and_agent_and_records_zero_usage(monkeypatch, 
     calls = []
     ids = iter(["first", "second"])
     monkeypatch.setattr(api.observability, "generate_request_id", lambda: next(ids))
-    monkeypatch.setattr(api, "answer_question", lambda question: calls.append(question) or fake_result())
+    monkeypatch.setattr(api, "answer_question", lambda question, **_kwargs: calls.append(question) or fake_result())
     client = TestClient(api.app)
 
     first = client.post("/api/ask", headers=auth_headers(), json={"question": "hello"})
@@ -128,32 +128,15 @@ def test_cache_hit_bypasses_spend_and_agent_and_records_zero_usage(monkeypatch, 
     assert fake_db.records[-1]["cache_hit"] is True
 
 
-def test_approved_sensitive_requests_always_bypass_cache(monkeypatch, fake_db):
-    calls = []
-
-    def fake_answer(question, approve_sensitive=False):
-        calls.append((question, approve_sensitive))
-        return fake_result()
-
-    monkeypatch.setattr(api, "answer_question", fake_answer)
-    client = TestClient(api.app)
-
-    first = client.post(
-        "/api/ask",
-        headers=auth_headers(),
-        json={"question": "send the report", "approve_sensitive": True},
-    )
-    second = client.post(
+def test_global_approval_flag_is_rejected(monkeypatch, fake_db):
+    response = TestClient(api.app).post(
         "/api/ask",
         headers=auth_headers(),
         json={"question": "send the report", "approve_sensitive": True},
     )
 
-    assert first.status_code == second.status_code == 200
-    assert first.json()["cached"] is False
-    assert second.json()["cached"] is False
-    assert calls == [("send the report", True), ("send the report", True)]
-    assert all(record["cache_hit"] is False for record in fake_db.records)
+    assert response.status_code == 422
+    assert not fake_db.records
 
 
 @pytest.mark.parametrize("path", ["/api/ask", "/api/ask/stream"])
@@ -173,7 +156,7 @@ def test_ceiling_rejection_is_recorded_for_both_routes(monkeypatch, fake_db, pat
 
 
 def test_agent_log_is_one_safe_json_line(monkeypatch, fake_db, caplog):
-    monkeypatch.setattr(api, "answer_question", lambda _question: fake_result(
+    monkeypatch.setattr(api, "answer_question", lambda _question, **_kwargs: fake_result(
         answer=(
             "do not log this answer; recipient=recipient@example.invalid; "
             "GROQ_API_KEY=groq-secret-test-value"
@@ -215,7 +198,7 @@ def test_agent_log_is_one_safe_json_line(monkeypatch, fake_db, caplog):
 def test_budget_warning_only_on_threshold_crossing(monkeypatch, fake_db, caplog):
     spends = iter([0.0, 0.85, 0.85, 0.85])
     monkeypatch.setattr(fake_db, "get_today_spend", lambda: next(spends))
-    monkeypatch.setattr(api, "answer_question", lambda question: fake_result())
+    monkeypatch.setattr(api, "answer_question", lambda question, **_kwargs: fake_result())
     client = TestClient(api.app)
 
     with caplog.at_level("INFO", logger="api"):
@@ -361,7 +344,7 @@ def test_both_routes_call_shared_boundary_once(monkeypatch, fake_db):
 
 
 def test_successful_read_only_result_is_cached(monkeypatch, fake_db):
-    monkeypatch.setattr(api, "answer_question", lambda _question: fake_result())
+    monkeypatch.setattr(api, "answer_question", lambda _question, **_kwargs: fake_result())
     client = TestClient(api.app)
 
     client.post("/api/ask", headers=auth_headers(), json={"question": "read only"})
@@ -375,7 +358,7 @@ def test_successful_read_only_result_is_cached(monkeypatch, fake_db):
 
 @pytest.mark.parametrize("answer,cited", [("Citation: policy-1", True), ("No citation", False)])
 def test_cited_is_derived_without_logging_answer(monkeypatch, fake_db, answer, cited):
-    monkeypatch.setattr(api, "answer_question", lambda _question: fake_result(
+    monkeypatch.setattr(api, "answer_question", lambda _question, **_kwargs: fake_result(
         answer=answer,
         trace=[{
             "step": 0,
@@ -417,7 +400,7 @@ def test_trace_contains_summaries_not_raw_payloads():
 
 
 def test_stream_api_returns_stable_event_shapes(monkeypatch, fake_db):
-    monkeypatch.setattr(api, "answer_question", lambda question, approve_sensitive=False: {
+    monkeypatch.setattr(api, "answer_question", lambda question, **_kwargs: {
         **fake_result(
             status="awaiting_approval",
             answer="Rows are ready.",
@@ -425,6 +408,7 @@ def test_stream_api_returns_stable_event_shapes(monkeypatch, fake_db):
         ),
         "rows": [{"id": 1, "status": "late"}],
         "approval": {
+            "approval_id": "approval-1",
             "tool": "export_report",
             "arguments": {"region": "APAC"},
         },
@@ -442,6 +426,7 @@ def test_stream_api_returns_stable_event_shapes(monkeypatch, fake_db):
         {"type": "text", "text": "Rows are ready."},
         {
             "type": "approval",
+            "approval_id": "approval-1",
             "tool": "export_report",
             "arguments": {"region": "APAC"},
         },

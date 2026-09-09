@@ -1,0 +1,16 @@
+{
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "name": "email_summary",
+          "arguments": {
+            "recipient": "ops@example.com",
+            "subject": "APAC report",
+            "body": "45 submissions were late."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -13,9 +13,11 @@ from fastapi.staticfiles import StaticFiles
 
 import observability
 import rag
+from agent import execute_approved_tool
+from approvals import decide_approval
 from auth import LocalUser, get_current_user
-from db import db
-from models import AskRequest, AskResponse
+from db import DB_PATH, db
+from models import ApprovalDecisionRequest, AskRequest, AskResponse
 from service import answer_question
 
 load_dotenv()
@@ -60,7 +62,7 @@ def version() -> dict[str, str]:
 
 
 def _check_sqlite() -> None:
-    with sqlite3.connect(db.DB_PATH) as connection:
+    with sqlite3.connect(DB_PATH) as connection:
         connection.execute("SELECT 1")
 
 
@@ -196,7 +198,7 @@ def _answer_with_observability(
     cached = observability.get_cached_response(
         user.user_id,
         question_hash,
-        request.approve_sensitive,
+        False,
     )
     if cached is not None:
         response_data = deepcopy(cached)
@@ -268,10 +270,7 @@ def _answer_with_observability(
             detail="Daily cost ceiling reached",
         )
 
-    if request.approve_sensitive:
-        result = answer_question(request.question, approve_sensitive=True)
-    else:
-        result = answer_question(request.question)
+    result = answer_question(request.question, requester=user.user_id)
 
     response_data = dict(result)
     input_tokens = int(result.get("input_tokens", 0))
@@ -313,7 +312,6 @@ def _answer_with_observability(
         question_hash,
         response.model_dump(),
         status=response.status,
-        approve_sensitive=request.approve_sensitive,
         tool_sequence=tools,
     )
 
@@ -334,6 +332,29 @@ def ask(
     user: LocalUser = Depends(get_current_user),  # noqa: B008
 ) -> AskResponse:
     return _answer_with_observability(request, user)
+
+
+@app.post("/api/approvals/{approval_id}", response_model=AskResponse)
+def decide_approval_request(
+    approval_id: str,
+    request: ApprovalDecisionRequest,
+    user: LocalUser = Depends(get_current_user),  # noqa: B008
+) -> AskResponse:
+    approval = decide_approval(approval_id, request.decision, user.user_id)
+    if approval is None:
+        raise HTTPException(status_code=404, detail="Approval not found or already decided")
+
+    if request.decision == "decline":
+        result = {
+            "status": "cancelled",
+            "message": "Action declined. No write was performed.",
+            "approval": approval,
+        }
+    else:
+        result = execute_approved_tool(approval)
+        result["approval"] = approval
+
+    return AskResponse.model_validate(result)
 
 
 @app.get("/metrics")
@@ -359,6 +380,7 @@ def stream_events(response: AskResponse):
     if response.approval:
         yield {
             "type": "approval",
+            "approval_id": response.approval["approval_id"],
             "tool": response.approval["tool"],
             "arguments": response.approval["arguments"],
         }

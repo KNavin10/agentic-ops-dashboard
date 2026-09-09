@@ -31,3 +31,17 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_runs_created_at ON agent_runs (created_at);
+
+CREATE TABLE IF NOT EXISTS approvals (
+    approval_id TEXT PRIMARY KEY,
+    requester TEXT NOT NULL,
+    tool TEXT NOT NULL,
+    arguments_json TEXT NOT NULL,
+    arguments_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    executed_at TEXT,
+    decision TEXT CHECK (decision IN ('approve', 'decline'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_approvals_requester ON approvals (requester);

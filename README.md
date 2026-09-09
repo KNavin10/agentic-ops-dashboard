@@ -139,6 +139,11 @@ collection. Chunks preserve Markdown headings and store `source`, `chunk_id`,
 
 ## Start the application
 
+For Docker Desktop, use the local deployment commands in the
+**Local Docker deployment** section below. For development without Docker,
+make sure `backend/.env` contains `API_TOKEN` and `GROQ_API_KEY`, then start
+the backend and frontend separately:
+
 Start the FastAPI backend in one PowerShell window:
 
 ```powershell
@@ -157,6 +162,41 @@ Open <http://localhost:4200/>. The Angular development proxy forwards the
 same-origin `/api` and `/metrics` requests to FastAPI at
 `http://localhost:8000`.
 
+## Local Docker deployment
+
+Docker Desktop can run a local staging and production-style deployment. This
+does not publish the application to the internet. The container serves the
+Angular frontend and FastAPI API together at `http://localhost:8000/`.
+
+From the repository root, make sure Docker Desktop is running and
+`backend/.env` contains `API_TOKEN` and `GROQ_API_KEY`, then run:
+
+```powershell
+.\deployment\deploy.ps1 -Action Build
+.\deployment\deploy.ps1 -Action Stage
+.\deployment\production-pipeline.ps1 -ApproveProduction
+```
+
+Staging is smoke-tested at <http://localhost:8001/>. Production is
+smoke-tested at <http://localhost:8000/>. The script checks both `/health` and
+`/ready`; `/ready` must report SQLite, Chroma, and Ollama as ready.
+
+To deploy an immutable GHCR image instead of the locally built image, pass its
+full digest reference:
+
+```powershell
+.\deployment\deploy.ps1 -Action Stage `
+  -ImageRef 'ghcr.io/knavin10/agentic-ops-dashboard@sha256:<digest>'
+.\deployment\production-pipeline.ps1 -ApproveProduction
+```
+
+The script records the staged, production, and previous image references in
+the ignored `deployment/state/` directory. If production smoke testing fails,
+it automatically restores the previous image. You can also run
+`.\deployment\deploy.ps1 -Action Rollback` manually. Production promotion is
+protected by the explicit `-ApproveProduction` flag in
+`deployment/production-pipeline.ps1`.
+
 ## Authentication example
 
 Set `API_TOKEN` in `backend/.env`. If using the browser, store the same value
@@ -166,7 +206,7 @@ PowerShell:
 
 ```powershell
 $headers = @{ Authorization = 'Bearer <your API_TOKEN value>' }
-$body = @{ question = 'Show three late APAC submissions.'; approve_sensitive = $false } | ConvertTo-Json
+$body = @{ question = 'Show three late APAC submissions.' } | ConvertTo-Json
 
 Invoke-RestMethod `
   -Method Post `
@@ -190,9 +230,10 @@ are written under its `output/` and `outbox/` subdirectories.
 In the Angular UI:
 
 1. The approval dialog shows the requested tool and arguments.
-2. Decline clears the request and sends no write request.
-3. Approve and resubmit sends the question again with
-   `approve_sensitive: true`.
+2. Decline records a decision for that approval ID and sends no write request.
+3. Approve sends the approval ID to the separate approval endpoint. The
+   backend executes the exact stored tool arguments; it does not call the
+   model again.
 
 An approved export writes a CSV under `output/`. An approved email summary
 writes `backend/outbox/email_summary.json`; no email is sent. When running
@@ -212,7 +253,7 @@ these safe summaries and separately displays returned rows and chart data.
 {"type":"tool","tool":"query_submissions","row_count":3}
 {"type":"rows","rows":[]}
 {"type":"text","text":"..."}
-{"type":"approval","tool":"export_report","arguments":{}}
+{"type":"approval","approval_id":"<id>","tool":"export_report","arguments":{}}
 {"type":"done"}
 ```
 
@@ -343,8 +384,12 @@ learning steps.
   prompt-injection defence.
 - The streaming endpoint emits events after the full agent call completes; it
   does not yet stream provider tokens or support cancellation.
-- Approving a request resubmits the question with a simple boolean flag; there
-  is no durable, request-bound approval record.
+- Approval records are request-bound and stored in SQLite with the requester,
+  tool, exact arguments (and a hash), decision, and timestamps.
+- The configured bearer token identifies one local learning-project user only;
+  it does not provide APAC/EMEA/AMER region-level authorization or isolation.
+- Rate limiting and multi-tenant isolation are out of scope for this learning
+  project.
 - Groq and Ollama are required at runtime for the full agent and policy-search
   paths. There is no offline model fallback.
 - Submission data, exports, and the email outbox are local files/SQLite data;

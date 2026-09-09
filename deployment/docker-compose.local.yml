@@ -1,0 +1,26 @@
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      APP_DATA_DIR: /app/storage
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-qwen3-embedding}
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      API_TOKEN: ${API_TOKEN:?API_TOKEN is required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8000,http://localhost:8001}
+      APP_VERSION: ${APP_VERSION:-local}
+    volumes:
+      - app-data:/app/storage
+    networks:
+      - agentic-ops
+
+volumes:
+  app-data:
+
+networks:
+  agentic-ops:
+    external: true
+    name: agentic-ops-network

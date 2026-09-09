@@ -1,4 +1,4 @@
 # Evaluation settings can be added here as the project grows.
-min_pass_rate: 0.90
+min_pass_rate: 1.00
 cases_file: cases.yaml
 report_file: reports/baseline.md
